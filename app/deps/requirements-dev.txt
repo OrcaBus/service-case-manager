@@ -1,0 +1,4 @@
+-r requirements-test.txt
+django_extensions
+openapi-spec-validator
+datamodel-code-generator
