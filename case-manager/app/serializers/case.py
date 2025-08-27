@@ -38,3 +38,15 @@ class CaseDetailSerializer(ModelSerializer):
     class Meta(OrcabusIdSerializerMetaMixin):
         model = Case
         fields = "__all__"
+
+
+class CaseExternalEntityLinkCreateSerializer(ModelSerializer):
+    class Meta:
+        model = CaseExternalEntityLink
+        fields = "__all__"
+
+
+class CaseUserCreateSerializer(ModelSerializer):
+    class Meta:
+        model = CaseUserLink
+        fields = "__all__"

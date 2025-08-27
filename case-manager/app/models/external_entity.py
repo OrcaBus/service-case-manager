@@ -11,7 +11,7 @@ class ExternalEntityManager(BaseManager):
 class ExternalEntity(BaseModel):
     objects = ExternalEntityManager()
 
-    orcabus_id = OrcaBusIdField(primary_key=True, prefix='cas')
+    orcabus_id = OrcaBusIdField(primary_key=True)
     prefix = models.CharField(
         blank=True,
         null=True,

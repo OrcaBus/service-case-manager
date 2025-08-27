@@ -11,7 +11,7 @@ class CommentManager(BaseManager):
 class Comment(BaseModel):
     objects = CommentManager()
 
-    orcabus_id = OrcaBusIdField(primary_key=True, prefix='cas')
+    orcabus_id = OrcaBusIdField(primary_key=True)
     text = models.CharField(
         blank=True,
         null=True,
