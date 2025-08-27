@@ -3,9 +3,8 @@ import logging
 
 from django.test import TestCase
 
-# from app.models import Library, Sample, Subject, Individual, Project
-# from app.tests.factories import LIBRARY_1, SUBJECT_1, SAMPLE_1, INDIVIDUAL_1, PROJECT_1, CONTACT_1
-from app.tests.utils import insert_fixture_1, is_obj_exists
+from app.tests.factories import UserFactory, USER_OO2, INDIVIDUAL_001, ExternalEntityFactory
+from app.tests.utils import insert_fixture_1
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -20,13 +19,14 @@ def version_endpoint(ep: str):
 
 class ViewSetTestCase(TestCase):
     def setUp(self):
-        insert_fixture_1()
+        pass
 
     def test_get_api(self):
         """
         python manage.py test app.tests.test_viewsets.ViewSetTestCase.test_get_api
         """
         # case
+        insert_fixture_1()
 
         logger.info(f"check API path for case")
         path = version_endpoint('case')
@@ -46,3 +46,50 @@ class ViewSetTestCase(TestCase):
         self.assertEqual(case["user_set"][0]["description"], "lead")
         self.assertEqual(case["user_set"][0]["user"]["email"], "alice@umccr.org")
 
+    def test_link_relationship(self):
+        """
+        python manage.py test app.tests.test_viewsets.ViewSetTestCase.test_link_relationship
+        """
+        case = insert_fixture_1()
+
+        # case - external entity
+        logger.info(f"check API path for case - user link")
+        path = version_endpoint('case/link-user')
+
+        user_2 = UserFactory(name=USER_OO2)
+        payload = {
+            "case": case.orcabus_id,
+            "user": user_2.orcabus_id,
+            "description": "lead"
+        }
+        response = self.client.post(f"/{path}/", data=json.dumps(payload),
+                                    content_type='application/json')
+        self.assertEqual(response.status_code, 200,
+                         "Ok status response is expected")
+        self.assertIsNotNone(response.data, "CaseUserLink object is expected to be created")
+        expected_keys = {"id", "description", "timestamp", "case", "user"}
+        self.assertTrue(expected_keys.issubset(response.data.keys()), "Expected keys are missing in the object")
+        user = case.user_set.get(name=USER_OO2)
+        self.assertEqual(user.name, USER_OO2, 'correct user name assigned')
+
+
+        # case - external entity
+        logger.info(f"check API path for case - external entity link")
+        path = version_endpoint('case/link-external-entity')
+
+        idv_1 = ExternalEntityFactory(**INDIVIDUAL_001)
+        payload = {
+            "case": case.orcabus_id,
+            "external_entity": idv_1.orcabus_id,
+            "added_via": "manual"
+        }
+        response = self.client.post(f"/{path}/", data=json.dumps(payload),
+                                    content_type='application/json')
+        self.assertEqual(response.status_code, 200,
+                         "Ok status response is expected")
+        expected_keys = {"id", "added_via", "timestamp", "case", "external_entity"}
+        self.assertTrue(expected_keys.issubset(response.data.keys()), "Expected keys are missing in the object")
+
+        external_entity_3 = case.external_entity_set.get(alias=INDIVIDUAL_001["alias"])
+        self.assertEqual(external_entity_3.alias, INDIVIDUAL_001["alias"], 'correct external entity alias assigned')
+        self.assertEqual(case.external_entity_set.count(), 3, 'correct number of external entity linked to case')

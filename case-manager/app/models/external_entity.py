@@ -18,6 +18,12 @@ class ExternalEntity(BaseModel):
         help_text="The prefix used in the orcabus_id. Each orcabus_id has a prefix that may correspond to the same or different service names. This indicates which entity the ID belongs to."
     )
 
+    type = models.CharField(
+        blank=True,
+        null=True,
+        help_text="The entity type within its service, local to that service. Typically, this matches the subpath to the entity, such as library, subject, or sequence."
+    )
+
     service_name = models.CharField(
         blank=True,
         null=True,
