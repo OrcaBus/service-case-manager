@@ -1,7 +1,7 @@
-Template Service
+Case Manager Service
 ================================================================================
 
-- [Template Service](#template-service)
+- [Case Manager Service](#case-manager-service)
   - [Service Description](#service-description)
     - [Name \& responsibility](#name--responsibility)
     - [Description](#description)
@@ -15,7 +15,6 @@ Template Service
       - [Versioning strategy](#versioning-strategy)
       - [Release management](#release-management)
   - [Infrastructure \& Deployment](#infrastructure--deployment)
-    - [Stateful](#stateful)
     - [Stateless](#stateless)
     - [CDK Commands](#cdk-commands)
     - [Stacks](#stacks)
@@ -83,12 +82,6 @@ Deployment settings / configuration (e.g. CodePipeline(s) / automated builds).
 Infrastructure and deployment are managed via CDK. This template provides two types of CDK entry points: `cdk-stateless` and `cdk-stateful`.
 
 
-### Stateful
-
-- Queues
-- Buckets
-- Database
-- ...
 
 ### Stateless
 - Lambdas
@@ -127,10 +120,10 @@ pnpm cdk-stateless ls
 Example output:
 
 ```sh
-OrcaBusStatelessServiceStack
-OrcaBusStatelessServiceStack/DeploymentPipeline/OrcaBusBeta/DeployStack (OrcaBusBeta-DeployStack)
-OrcaBusStatelessServiceStack/DeploymentPipeline/OrcaBusGamma/DeployStack (OrcaBusGamma-DeployStack)
-OrcaBusStatelessServiceStack/DeploymentPipeline/OrcaBusProd/DeployStack (OrcaBusProd-DeployStack)
+OrcaBusStatelessCaseManagerStack
+OrcaBusStatelessCaseManagerStack/DeploymentPipeline/OrcaBusBeta/CaseManagerStack (OrcaBusBeta-CaseManagerStack)
+OrcaBusStatelessCaseManagerStack/DeploymentPipeline/OrcaBusGamma/CaseManagerStack (OrcaBusGamma-CaseManagerStack)
+OrcaBusStatelessCaseManagerStack/DeploymentPipeline/OrcaBusProd/CaseManagerStack (OrcaBusProd-CaseManagerStack)
 ```
 
 
