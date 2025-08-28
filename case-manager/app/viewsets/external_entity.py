@@ -16,4 +16,3 @@ class ExternalEntityViewSet(BaseViewSet):
         query_params = self.request.query_params.copy()
 
         return ExternalEntity.objects.get_by_keyword(qs, **query_params)
-
