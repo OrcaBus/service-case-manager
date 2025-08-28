@@ -52,7 +52,7 @@ class ViewSetTestCase(TestCase):
         """
         case = insert_fixture_1()
 
-        # case - external entity
+        # case - user
         logger.info(f"check API path for case - user link")
         path = version_endpoint('case/link-user')
 
@@ -71,7 +71,6 @@ class ViewSetTestCase(TestCase):
         self.assertTrue(expected_keys.issubset(response.data.keys()), "Expected keys are missing in the object")
         user = case.user_set.get(name=USER_OO2)
         self.assertEqual(user.name, USER_OO2, 'correct user name assigned')
-
 
         # case - external entity
         logger.info(f"check API path for case - external entity link")
@@ -93,3 +92,42 @@ class ViewSetTestCase(TestCase):
         external_entity_3 = case.external_entity_set.get(alias=INDIVIDUAL_001["alias"])
         self.assertEqual(external_entity_3.alias, INDIVIDUAL_001["alias"], 'correct external entity alias assigned')
         self.assertEqual(case.external_entity_set.count(), 3, 'correct number of external entity linked to case')
+
+    def test_unlink_user(self):
+        """
+        Test unlinking a user from a case via DELETE.
+
+        python manage.py test app.tests.test_viewsets.ViewSetTestCase.test_unlink_user
+        """
+        case = insert_fixture_1()
+        user_2 = UserFactory(name=USER_OO2)
+        # Link user
+        case.user_set.add(user_2, through_defaults={"description": "lead"})
+        self.assertEqual(case.user_set.count(), 2)
+
+        path = version_endpoint('case')
+        response = self.client.delete(
+            f"/{path}/{case.orcabus_id}/user/{user_2.orcabus_id}"
+        )
+        self.assertEqual(response.status_code, 204)
+        case.refresh_from_db()
+        self.assertEqual(case.user_set.filter(orcabus_id=user_2.orcabus_id).count(), 0)
+
+    def test_unlink_external_entity(self):
+        """
+        Test unlinking an external entity from a case via DELETE.
+        python manage.py test app.tests.test_viewsets.ViewSetTestCase.test_unlink_external_entity
+        """
+        case = insert_fixture_1()
+        idv_1 = ExternalEntityFactory(**INDIVIDUAL_001)
+        # Link external entity
+        case.external_entity_set.add(idv_1, through_defaults={"added_via": "manual"})
+        self.assertEqual(case.external_entity_set.count(), 3)
+
+        path = version_endpoint('case')
+        response = self.client.delete(
+            f"/{path}/{case.orcabus_id}/external-entity/{idv_1.orcabus_id}"
+        )
+        self.assertEqual(response.status_code, 204)
+        case.refresh_from_db()
+        self.assertEqual(case.external_entity_set.filter(orcabus_id=idv_1.orcabus_id).count(), 0)

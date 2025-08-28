@@ -81,7 +81,3 @@ make migrate
 #### SQL Queries
 
 To quickly run raw sql queries to the database, `make psql` will log in to the psql server.
-
-### Deployment
-
-View the deployment docs [here](./deploy/README.md).

@@ -27,8 +27,8 @@ class CaseViewSet(BaseViewSet):
     @action(
         detail=False,
         methods=['post'],
-        url_name='link-external-entity',
-        url_path='link-external-entity'
+        url_name='link/external-entity',
+        url_path='link/external-entity'
     )
     def create_case_external_entity_relationship(self, request, *args, **kwargs):
         serializer = CaseExternalEntityLinkCreateSerializer(data=request.data, many=False)
@@ -54,6 +54,28 @@ class CaseViewSet(BaseViewSet):
         return Response(res_data)
 
     @extend_schema(
+        responses={204: None},
+        description="Remove a link between external entity and the case."
+    )
+    @action(
+        detail=True,
+        methods=['delete'],
+        url_name='remove_case_external_entity_relationship',
+        url_path='external-entity/(?P<external_entity_orcabus_id>[^/]+)'
+    )
+    def unlink_case_external_entity(self, request, *args, **kwargs):
+        case_orcabus_id = kwargs.get('pk', None)
+        external_entity_orcabus_id = kwargs.get('external_entity_orcabus_id', None)
+
+        link = get_object_or_404(
+            CaseExternalEntityLink,
+            case_id=case_orcabus_id,
+            external_entity_id=external_entity_orcabus_id
+        )
+        link.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @extend_schema(
         request=CaseUserCreateSerializer,
         responses=CaseUserCreateSerializer,
         description="Links a user to a case."
@@ -61,8 +83,8 @@ class CaseViewSet(BaseViewSet):
     @action(
         detail=False,
         methods=['post'],
-        url_name='link-user',
-        url_path='link-user'
+        url_name='link/user',
+        url_path='link/user'
     )
     def create_case_user_relationship(self, request, *args, **kwargs):
         serializer = CaseUserCreateSerializer(data=request.data, many=False)
@@ -86,3 +108,25 @@ class CaseViewSet(BaseViewSet):
         res_data = CaseUserCreateSerializer(case_user_link).data
 
         return Response(res_data)
+
+    @extend_schema(
+        responses={204: None},
+        description="Unlinks a user from a case."
+    )
+    @action(
+        detail=True,
+        methods=['delete'],
+        url_name='remove_case_user_relationship',
+        url_path='user/(?P<user_orcabus_id>[^/]+)'
+    )
+    def unlink_case_user(self, request, *args, **kwargs):
+        case_orcabus_id = kwargs.get('pk', None)
+        user_orcabus_id = kwargs.get('user_orcabus_id', None)
+
+        link = get_object_or_404(
+            CaseUserLink,
+            case_id=case_orcabus_id,
+            user_id=user_orcabus_id
+        )
+        link.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
