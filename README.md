@@ -23,7 +23,6 @@ Case Manager Service
     - [Setup](#setup)
       - [Requirements](#requirements)
       - [Install Dependencies](#install-dependencies)
-      - [First Steps](#first-steps)
     - [Conventions](#conventions)
     - [Linting \& Formatting](#linting--formatting)
     - [Testing](#testing)
@@ -79,8 +78,7 @@ Infrastructure & Deployment
 Short description with diagrams where appropriate.
 Deployment settings / configuration (e.g. CodePipeline(s) / automated builds).
 
-Infrastructure and deployment are managed via CDK. This template provides two types of CDK entry points: `cdk-stateless` and `cdk-stateful`.
-
+Infrastructure and deployment are managed via CDK.
 
 
 ### Stateless
@@ -93,7 +91,6 @@ Infrastructure and deployment are managed via CDK. This template provides two ty
 You can access CDK commands using the `pnpm` wrapper script.
 
 - **`cdk-stateless`**: Used to deploy stacks containing stateless resources (e.g., AWS Lambda), which can be easily redeployed without side effects.
-- **`cdk-stateful`**: Used to deploy stacks containing stateful resources (e.g., AWS DynamoDB, AWS RDS), where redeployment may not be ideal due to potential side effects.
 
 The type of stack to deploy is determined by the context set in the `./bin/deploy.ts` file. This ensures the correct stack is executed based on the provided context.
 
@@ -103,8 +100,6 @@ For example:
 # Deploy a stateless stack
 pnpm cdk-stateless <command>
 
-# Deploy a stateful stack
-pnpm cdk-stateful <command>
 ```
 
 ### Stacks
@@ -138,7 +133,7 @@ The project is organized into the following key directories:
 
 - **`./app`**: Contains the main application logic. You can open the code editor directly in this folder, and the application should run independently.
 
-- **`./bin/deploy.ts`**: Serves as the entry point of the application. It initializes two root stacks: `stateless` and `stateful`. You can remove one of these if your service does not require it.
+- **`./bin/deploy.ts`**: Serves as the entry point of the application.
 
 - **`./infrastructure`**: Contains the infrastructure code for the project:
   - **`./infrastructure/toolchain`**: Includes stacks for the stateless and stateful resources deployed in the toolchain account. These stacks primarily set up the CodePipeline for cross-environment deployments.
@@ -174,11 +169,6 @@ To install all required dependencies, run:
 ```sh
 make install
 ```
-
-#### First Steps
-
-Before using this template, search for all instances of `TODO:` comments in the codebase and update them as appropriate for your service. This includes replacing placeholder values (such as stack names).
-
 
 ### Conventions
 
