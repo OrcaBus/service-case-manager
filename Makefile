@@ -7,7 +7,7 @@ check:
 	@pre-commit run --all-files
 
 check-all: check
-	@(cd app && make check)
+	@(cd case-manager && make check)
 
 fix:
 	@pnpm prettier-fix

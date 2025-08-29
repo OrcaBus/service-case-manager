@@ -61,7 +61,7 @@ class ViewSetTestCase(TestCase):
 
         # case - user
         logger.info(f"check API path for case - user link")
-        path = version_endpoint("case/link-user")
+        path = version_endpoint("case/link/user")
 
         user_2 = UserFactory(name=USER_OO2)
         payload = {
@@ -86,7 +86,7 @@ class ViewSetTestCase(TestCase):
 
         # case - external entity
         logger.info(f"check API path for case - external entity link")
-        path = version_endpoint("case/link-external-entity")
+        path = version_endpoint("case/link/external-entity")
 
         idv_1 = ExternalEntityFactory(**INDIVIDUAL_001)
         payload = {
