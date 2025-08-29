@@ -28,7 +28,11 @@ class Comment(BaseModel):
         db_column="case_orcabus_id",
     )
     user = models.ForeignKey(
-        "User", on_delete=models.CASCADE, blank=False, null=False, db_column="email"
+        "User",
+        on_delete=models.CASCADE,
+        blank=False,
+        null=False,
+        db_column="user_orcabus_id",
     )
     state = models.ForeignKey(
         "State",
