@@ -16,11 +16,11 @@ class UserCaseSerializer(ModelSerializer):
 
     class Meta:
         model = CaseUserLink
-        fields = ['description', 'timestamp', 'case']
+        fields = ["description", "timestamp", "case"]
 
 
 class UserDetailSerializer(ModelSerializer):
-    case_set = UserCaseSerializer(source='caseuserlink_set', read_only=True, many=True)
+    case_set = UserCaseSerializer(source="caseuserlink_set", read_only=True, many=True)
 
     class Meta:
         model = User

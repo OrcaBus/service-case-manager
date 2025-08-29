@@ -40,6 +40,7 @@
     "@aws-cdk/aws-lambda-python-alpha": "2.212.0-alpha.0",
     "@orcabus/platform-cdk-constructs": "0.0.69",
     "aws-cdk-lib": "^2.212.0",
+    "case-manager": "link:",
     "constructs": "^10.4.2"
   }
 }

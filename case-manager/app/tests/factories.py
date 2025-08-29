@@ -13,25 +13,25 @@ LIBRARY_001 = {
     "prefix": "lib",
     "orcabus_id": "01BX5ZZKBKACTAV9WEVGEMM001",
     "service_name": "metadata",
-    "alias": "library-001"
+    "alias": "library-001",
 }
 LIBRARY_002 = {
     "prefix": "lib",
     "orcabus_id": "01BX5ZZKBKACTAV9WEVGEMM002",
     "service_name": "metadata",
-    "alias": "library-002"
+    "alias": "library-002",
 }
 INDIVIDUAL_001 = {
     "prefix": "idv",
     "orcabus_id": "01BX5ZZKBKACTAV9WEVGEMM003",
     "service_name": "metadata",
-    "alias": "individual-001"
+    "alias": "individual-001",
 }
 SEQUENCE_RUN_001 = {
     "prefix": "seq",
     "orcabus_id": "01BX5ZZKBKACTAV9WEVGEMM004",
     "service_name": "sequence",
-    "alias": "sequence-run-001"
+    "alias": "sequence-run-001",
 }
 EXTERNAL_ENTITIES = [
     LIBRARY_001,
@@ -62,7 +62,7 @@ class StateFactory(DjangoModelFactory):
     class Meta:
         model = State
 
-    status = factory.fuzzy.FuzzyChoice(['draft', 'pending', 'completed', 'archived'])
+    status = factory.fuzzy.FuzzyChoice(["draft", "pending", "completed", "archived"])
 
 
 class CommentFactory(DjangoModelFactory):
@@ -75,7 +75,7 @@ class CommentFactory(DjangoModelFactory):
 class ExternalEntityFactory(DjangoModelFactory):
     class Meta:
         model = ExternalEntity
-        exclude = ['test_data']
+        exclude = ["test_data"]
 
     test_data = factory.Iterator(EXTERNAL_ENTITIES)
 

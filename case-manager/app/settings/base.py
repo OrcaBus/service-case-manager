@@ -1,4 +1,5 @@
 """DO NOT USE base SETTING IN PRODUCTION"""
+
 import os
 import uuid
 from pathlib import Path
@@ -124,7 +125,6 @@ LOGGING = {
             "level": "INFO",
             "handlers": ["console"],
         },
-
     },
 }
 
@@ -143,7 +143,7 @@ REST_FRAMEWORK = {
         "djangorestframework_camel_case.parser.CamelCaseJSONParser",
     ),
     "JSON_UNDERSCOREIZE": {
-        'no_underscore_before_number': True,
+        "no_underscore_before_number": True,
     },
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.TokenAuthentication",
@@ -167,23 +167,20 @@ XRAY_RECORDER = {
 # turn off xray more generally and, you can overwrite with env var AWS_XRAY_SDK_ENABLED=true at runtime
 aws_xray_sdk.global_sdk_config.set_sdk_enabled(False)
 
-REST_FRAMEWORK['DEFAULT_SCHEMA_CLASS'] = 'drf_spectacular.openapi.AutoSchema'
+REST_FRAMEWORK["DEFAULT_SCHEMA_CLASS"] = "drf_spectacular.openapi.AutoSchema"
 SPECTACULAR_SETTINGS = {
-    'TITLE': 'Case Manager API',
-    'DESCRIPTION': 'The Case Manager API for UMCCR.',
-    'VERSION': '0.0.1',
-    'SERVE_INCLUDE_SCHEMA': False,
-    'SECURITY': [
+    "TITLE": "Case Manager API",
+    "DESCRIPTION": "The Case Manager API for UMCCR.",
+    "VERSION": "0.0.1",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "SECURITY": [
         {
             "type": "http",
             "scheme": "bearer",
             "bearerFormat": "JWT",
         }
     ],
-    'CONTACT': {
-        'name': 'UMCCR',
-        'email': 'services@umccr.org'
-    },
+    "CONTACT": {"name": "UMCCR", "email": "services@umccr.org"},
     "LICENSE": {
         "name": "MIT License",
     },
@@ -191,11 +188,11 @@ SPECTACULAR_SETTINGS = {
         "description": "Terms of service",
         "url": "https://umccr.org/",
     },
-    'CAMELIZE_NAMES': True,
-    'POSTPROCESSING_HOOKS': [
-        'drf_spectacular.contrib.djangorestframework_camel_case.camelize_serializer_fields',
-        'drf_spectacular.hooks.postprocess_schema_enums'
+    "CAMELIZE_NAMES": True,
+    "POSTPROCESSING_HOOKS": [
+        "drf_spectacular.contrib.djangorestframework_camel_case.camelize_serializer_fields",
+        "drf_spectacular.hooks.postprocess_schema_enums",
     ],
-    'SCHEMA_PATH_PREFIX': f'/api/{API_VERSION}/',
-    'COMPONENT_SPLIT_REQUEST': True
+    "SCHEMA_PATH_PREFIX": f"/api/{API_VERSION}/",
+    "COMPONENT_SPLIT_REQUEST": True,
 }

@@ -1,4 +1,3 @@
-
 from app.models import ExternalEntity
 from app.serializers import ExternalEntityDetailSerializer
 
@@ -9,7 +8,6 @@ class ExternalEntityViewSet(BaseViewSet):
     serializer_class = ExternalEntityDetailSerializer
     search_fields = ExternalEntity.get_base_fields()
     queryset = ExternalEntity.objects.all()
-
 
     def get_queryset(self):
         qs = self.queryset

@@ -20,8 +20,20 @@ class Comment(BaseModel):
     timestamp = models.DateTimeField(auto_now=True)
 
     # Relationships
-    case = models.ForeignKey('Case', on_delete=models.CASCADE, blank=False, null=False,
-                             db_column='case_orcabus_id')
-    user = models.ForeignKey('User', on_delete=models.CASCADE, blank=False, null=False,
-                             db_column='email')
-    state = models.ForeignKey('State', on_delete=models.CASCADE, blank=True, null=True, db_column='state_orcabus_id')
+    case = models.ForeignKey(
+        "Case",
+        on_delete=models.CASCADE,
+        blank=False,
+        null=False,
+        db_column="case_orcabus_id",
+    )
+    user = models.ForeignKey(
+        "User", on_delete=models.CASCADE, blank=False, null=False, db_column="email"
+    )
+    state = models.ForeignKey(
+        "State",
+        on_delete=models.CASCADE,
+        blank=True,
+        null=True,
+        db_column="state_orcabus_id",
+    )

@@ -15,13 +15,13 @@ def handler(event, context) -> dict[str, str]:
     logger.info(f"Processing event: {json.dumps(event, indent=4)}")
 
     resp = {
-        "StackId": event.get('StackId'),
-        "RequestId": event.get('RequestId'),
-        "LogicalResourceId": event.get('LogicalResourceId'),
-        "PhysicalResourceId": event.get("PhysicalResourceId")
+        "StackId": event.get("StackId"),
+        "RequestId": event.get("RequestId"),
+        "LogicalResourceId": event.get("LogicalResourceId"),
+        "PhysicalResourceId": event.get("PhysicalResourceId"),
     }
 
-    if event.get('RequestType') == 'Delete':
+    if event.get("RequestType") == "Delete":
         return {
             **resp,
             "Status": "SUCCESS",
@@ -30,6 +30,6 @@ def handler(event, context) -> dict[str, str]:
     execute_from_command_line(["./manage.py", "migrate"])
     return {
         **resp,
-        "Status": 'SUCCESS',
+        "Status": "SUCCESS",
         "Data": {"Message": "Migration complete."},
     }

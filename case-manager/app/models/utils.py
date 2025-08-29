@@ -1,7 +1,9 @@
 from django.db.models import enums
 
 
-def get_value_from_human_readable_label(choices: enums.ChoicesType, human_readable: str) -> str:
+def get_value_from_human_readable_label(
+    choices: enums.ChoicesType, human_readable: str
+) -> str:
     """
     Convert human-readable enum choices to the value of its stored model if exist
     """

@@ -8,6 +8,7 @@ class CommentSerializer(ModelSerializer):
         model = Comment
         fields = "__all__"
 
+
 class CommentUserSerializer(ModelSerializer):
     from .user import UserSerializer
 
@@ -15,4 +16,4 @@ class CommentUserSerializer(ModelSerializer):
 
     class Meta:
         model = Comment
-        fields =  "__all__"
+        fields = "__all__"

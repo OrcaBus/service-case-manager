@@ -14,7 +14,7 @@ fix:
 	@pnpm lint-fix
 
 fix-all: fix
-	@(cd app && make fix)
+	@(cd case-manager && make fix)
 
 install:
 	@pnpm install --frozen-lockfile

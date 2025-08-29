@@ -7,6 +7,14 @@ DB_PORT ?= 5432
 install:
 	@pip install -r deps/requirements-dev.txt
 
+check: lint
+
+lint:
+	@black -t py312 --check . --exclude .venv
+
+lint-fix:
+	@black -t py312 . --exclude .venv
+
 # docker compose shortcut
 up:
 	@docker compose up --wait -d

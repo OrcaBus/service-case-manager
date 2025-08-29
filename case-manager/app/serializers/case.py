@@ -16,7 +16,7 @@ class CaseExternalEntityLinkSerializer(ModelSerializer):
 
     class Meta:
         model = CaseExternalEntityLink
-        fields = ['timestamp', 'added_via', 'external_entity']
+        fields = ["timestamp", "added_via", "external_entity"]
 
 
 class CaseUserLinkSerializer(ModelSerializer):
@@ -26,14 +26,17 @@ class CaseUserLinkSerializer(ModelSerializer):
 
     class Meta:
         model = CaseUserLink
-        fields = ['description', 'timestamp', 'user']
+        fields = ["description", "timestamp", "user"]
 
 
 class CaseDetailSerializer(ModelSerializer):
-    external_entity_set = CaseExternalEntityLinkSerializer(source="caseexternalentitylink_set", many=True,
-                                                           read_only=True)
+    external_entity_set = CaseExternalEntityLinkSerializer(
+        source="caseexternalentitylink_set", many=True, read_only=True
+    )
 
-    user_set = CaseUserLinkSerializer(source="caseuserlink_set", many=True, read_only=True)
+    user_set = CaseUserLinkSerializer(
+        source="caseuserlink_set", many=True, read_only=True
+    )
 
     class Meta(OrcabusIdSerializerMetaMixin):
         model = Case

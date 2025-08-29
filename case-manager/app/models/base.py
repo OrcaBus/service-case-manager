@@ -36,15 +36,15 @@ class BaseManager(models.Manager):
     @staticmethod
     def reduce_multi_values_qor(key: str, values: List[str]):
         if not isinstance(
-                values,
-                list,
+            values,
+            list,
         ):
             values = [values]
         return reduce(
             # Apparently the `get_prep_value` from the custom fields.py is not called prior hitting the Db but,
             # the regular `__exact` still execute that function.
-            operator.or_, (Q(**{"%s__exact" % key: value})
-                           for value in values)
+            operator.or_,
+            (Q(**{"%s__exact" % key: value}) for value in values),
         )
 
     def get_model_fields_query(self, qs: QuerySet, **kwargs) -> QuerySet:
@@ -106,17 +106,17 @@ class BaseModel(models.Model):
         base_fields = set()
         for f in cls._meta.get_fields():
             if isinstance(
-                    f,
-                    (
-                            ForeignKey,
-                            ForeignObject,
-                            OneToOneField,
-                            ManyToManyField,
-                            ForeignObjectRel,
-                            ManyToOneRel,
-                            ManyToManyRel,
-                            OneToOneRel,
-                    ),
+                f,
+                (
+                    ForeignKey,
+                    ForeignObject,
+                    OneToOneField,
+                    ManyToManyField,
+                    ForeignObjectRel,
+                    ManyToOneRel,
+                    ManyToManyRel,
+                    OneToOneRel,
+                ),
             ):
                 continue
             base_fields.add(f.name)

@@ -22,7 +22,6 @@ def handler(event, context) -> dict[str, str]:
     if command not in whitelist_command:
         raise ValueError(f"Command {command} not accepted")
 
-
     res = execute_from_command_line(["./manage.py", command, *args])
 
     return res

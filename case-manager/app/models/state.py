@@ -13,13 +13,16 @@ class State(BaseModel):
 
     orcabus_id = OrcaBusIdField(primary_key=True)
     status = models.CharField(
-        blank=False,
-        null=False,
-        help_text="The status of the case."
+        blank=False, null=False, help_text="The status of the case."
     )
 
     timestamp = models.DateTimeField(auto_now=True)
 
     # Relationships
-    case = models.ForeignKey('Case', on_delete=models.CASCADE, blank=False, null=False,
-                             db_column='case_orcabus_id')
+    case = models.ForeignKey(
+        "Case",
+        on_delete=models.CASCADE,
+        blank=False,
+        null=False,
+        db_column="case_orcabus_id",
+    )

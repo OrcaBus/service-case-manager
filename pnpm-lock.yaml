@@ -17,6 +17,9 @@ importers:
       aws-cdk-lib:
         specifier: ^2.212.0
         version: 2.212.0(constructs@10.4.2)
+      case-manager:
+        specifier: 'link:'
+        version: 'link:'
       constructs:
         specifier: ^10.4.2
         version: 10.4.2

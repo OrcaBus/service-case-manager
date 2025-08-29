@@ -9,7 +9,6 @@ class StateViewSet(BaseViewSet):
     search_fields = State.get_base_fields()
     queryset = State.objects.all()
 
-
     def get_queryset(self):
         qs = self.queryset
         query_params = self.request.query_params.copy()
