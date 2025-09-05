@@ -2,8 +2,6 @@ from django.db import models
 
 from app.fields import OrcaBusIdField
 from app.models.base import BaseModel, BaseManager
-from app.models.comment import Comment
-from app.models.state import State
 
 
 class CaseManager(BaseManager):

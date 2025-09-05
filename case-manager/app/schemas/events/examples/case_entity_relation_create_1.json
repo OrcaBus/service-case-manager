@@ -1,0 +1,30 @@
+{
+  "version": "0",
+  "id": "8d891dc9-df3f-0cec-a6d9-650388dd07be",
+  "detail-type": "CaseEntityRelationshipEvent",
+  "source": "orcabus.casemanager",
+  "account": "843407916570",
+  "time": "2025-09-05T07:31:41Z",
+  "region": "ap-southeast-2",
+  "resources": [],
+  "detail": {
+    "action": "CREATE",
+    "refId": "34",
+    "addedVia": "manual",
+    "timestamp": "2025-09-05T07:25:35.567344+00:00",
+    "case": {
+      "orcabus_id": "cas.01K4CAZ6M86JFFHB863WVASNJ6",
+      "title": "string",
+      "description": "string",
+      "type": "string",
+      "last_modified": "2025-09-05T07:03:05.614595Z"
+    },
+    "externalEntity": {
+      "orcabus_id": "39GFXYE80JTMD7RZ7EBKW4S8R4",
+      "prefix": "lib",
+      "type": "library",
+      "service_name": "metadata",
+      "alias": "L001"
+    }
+  }
+}

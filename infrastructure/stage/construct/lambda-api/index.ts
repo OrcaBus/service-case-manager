@@ -13,6 +13,8 @@ import {
   OrcaBusApiGatewayProps,
 } from '@orcabus/platform-cdk-constructs/api-gateway';
 import { IDatabaseCluster } from 'aws-cdk-lib/aws-rds';
+import { EVENT_BUS_NAME } from '@orcabus/platform-cdk-constructs/shared-config/event-bridge';
+import { EventBus } from 'aws-cdk-lib/aws-events';
 
 type LambdaProps = {
   /**
@@ -86,5 +88,9 @@ export class LambdaAPIConstruct extends Construct {
       integration: apiIntegration,
       routeKey: HttpRouteKey.with(`/api/${this.API_VERSION}/{PROXY+}`, HttpMethod.DELETE),
     });
+
+    const orcabusEventBus = EventBus.fromEventBusName(this, 'EventBus', EVENT_BUS_NAME);
+    orcabusEventBus.grantPutEventsTo(this.lambda);
+    this.lambda.addEnvironment('EVENT_BUS_NAME', EVENT_BUS_NAME);
   }
 }
