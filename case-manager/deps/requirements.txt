@@ -17,6 +17,7 @@ Werkzeug==3.1.3
 libumccr==0.4.1
 cachetools==5.5.0
 serverless-wsgi==3.0.5
+pydantic==2.11.7
 
 # six and regex required by automatically generated EventBridge code binding
 six==1.17.0

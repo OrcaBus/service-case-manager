@@ -13,6 +13,7 @@ import {
   DB_CLUSTER_IDENTIFIER,
   DB_CLUSTER_RESOURCE_ID_PARAMETER_NAME,
 } from '@orcabus/platform-cdk-constructs/shared-config/database';
+import { EventSchemaConstruct } from './construct/event-schema';
 
 export type CaseManagerStackProps = {
   /**
@@ -101,5 +102,7 @@ export class CaseManagerStack extends Stack {
       databaseName: this.CASE_MANAGER_DB_NAME,
       apiGatewayConstructProps: props.apiGatewayCognitoProps,
     });
+
+    new EventSchemaConstruct(this, 'EventSchema');
   }
 }

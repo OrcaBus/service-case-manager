@@ -10,6 +10,10 @@ from app.serializers import (
     CaseUserCreateSerializer,
 )
 from .base import BaseViewSet
+from ..service.case import (
+    link_case_to_external_entity_and_emit,
+    unlink_case_to_external_entity_and_emit,
+)
 
 
 class CaseViewSet(BaseViewSet):
@@ -51,11 +55,10 @@ class CaseViewSet(BaseViewSet):
             ExternalEntity, pk=external_entity_orcabus_id
         )
 
-        case_entity_link = CaseExternalEntityLink.objects.create(
-            case=case,
-            external_entity=external_entity,
-            added_via=data.get("added_via", None),
+        case_entity_link = link_case_to_external_entity_and_emit(
+            case, external_entity, added_via=data.get("added_via", None)
         )
+
         res_data = CaseExternalEntityLinkCreateSerializer(case_entity_link).data
 
         return Response(res_data)
@@ -79,7 +82,9 @@ class CaseViewSet(BaseViewSet):
             case_id=case_orcabus_id,
             external_entity_id=external_entity_orcabus_id,
         )
-        link.delete()
+
+        unlink_case_to_external_entity_and_emit(link)
+
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @extend_schema(

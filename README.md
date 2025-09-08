@@ -41,18 +41,21 @@ Service Description
 This service provides a RESTful API following OpenAPI conventions.
 The Swagger documentation of the production endpoint is available here:
 
+Development:
+
+<https://case.dev.umccr.org/schema/swagger-ui/>
 
 ### Consumed Events
 
 | Name / DetailType | Source         | Schema Link       | Description         |
 |-------------------|----------------|-------------------|---------------------|
-| `SomeServiceStateChange` | `orcabus.someservice` | <schema link> | Announces service state changes |
+| _None currently_ | _N/A_ | _N/A_ | _The Case Manager service does not currently consume external events_ |
 
 ### Published Events
 
 | Name / DetailType | Source         | Schema Link       | Description         |
 |-------------------|----------------|-------------------|---------------------|
-| `TemplateStateChange` | `orcabus.templatemanager` | <schema link> | Announces Template data state changes |
+| `CaseExternalEntityRelationshipStateChange` | `orcabus.casemanager` | [schema](./case-manager/app/schemas/events/case_external_entity_relationship_created.json) | Announces when relationship between the case and external entity changes |
 
 
 ### (Internal) Data states & persistence model
