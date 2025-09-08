@@ -41,6 +41,9 @@ Service Description
 This service provides a RESTful API following OpenAPI conventions.
 The Swagger documentation of the production endpoint is available here:
 
+Development:
+
+<https://case.dev.umccr.org/schema/swagger-ui/>
 
 ### Consumed Events
 

@@ -2,3 +2,4 @@
 django_extensions
 black
 datamodel-code-generator
+check-jsonschema

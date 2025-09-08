@@ -1,7 +1,7 @@
 {
   "version": "0",
   "id": "8d891dc9-df3f-0cec-a6d9-650388dd07be",
-  "detail-type": "CaseEntityRelationshipEvent",
+  "detail-type": "CaseEntityRelationshipStateChange",
   "source": "orcabus.casemanager",
   "account": "843407916570",
   "time": "2025-09-05T07:31:41Z",
