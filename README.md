@@ -49,13 +49,13 @@ Development:
 
 | Name / DetailType | Source         | Schema Link       | Description         |
 |-------------------|----------------|-------------------|---------------------|
-| _None currently_ | _N/A_ | _N/A_ | _The Case Manager service does not currently consume external events_ |
+| `CaseRelationshipUpdate` | anything but `orcabus.casemanager` | [schema](./case-manager/app/schemas/events/CaseRelationshipUpdate.schema.json) | Listens to relationship update requests from external services and processes them by updating case records and emitting corresponding state change events |
 
 ### Published Events
 
 | Name / DetailType | Source         | Schema Link       | Description         |
 |-------------------|----------------|-------------------|---------------------|
-| `CaseExternalEntityRelationshipStateChange` | `orcabus.casemanager` | [schema](./case-manager/app/schemas/events/case_external_entity_relationship_created.json) | Announces when relationship between the case and external entity changes |
+| `CaseRelationshipStateChange` | `orcabus.casemanager` | [schema](./case-manager/app/schemas/events/CaseRelationshipStateChange.schema.json) | Announces when relationship between the case and external entity changes |
 
 
 ### (Internal) Data states & persistence model

@@ -2,8 +2,8 @@ from django.db import transaction
 
 from app.aws.event_bridge import emit_event
 from app.models import Case, CaseExternalEntityLink, ExternalEntity, User, CaseUserLink
-from app.schemas.events.models import (
-    CaseExternalEntityRelationshipChange,
+from app.schemas.events.case_srelationship_state_change_model import (
+    CaseRelationshipStateChange,
     Action,
     DetailType,
 )
@@ -28,7 +28,7 @@ def link_case_to_external_entity_and_emit(
         case_entity_link.external_entity
     ).data
 
-    relationship_change_event = CaseExternalEntityRelationshipChange(
+    relationship_change_event = CaseRelationshipStateChange(
         action=Action.CREATE,
         refId=str(case_entity_link.id),
         addedVia=added_via,
@@ -39,7 +39,7 @@ def link_case_to_external_entity_and_emit(
 
     # emit event to Event Bridge
     emit_event(
-        detail_type=DetailType.CaseEntityRelationshipStateChange.value,
+        detail_type=DetailType.CaseRelationshipStateChange.value,
         event_detail_model=relationship_change_event,
     )
     return case_entity_link
@@ -57,7 +57,7 @@ def unlink_case_to_external_entity_and_emit(
         case_external_entity.external_entity
     ).data
 
-    relationship_change_event = CaseExternalEntityRelationshipChange(
+    relationship_change_event = CaseRelationshipStateChange(
         action=Action.DELETE,
         refId=str(case_external_entity.id),
         addedVia=case_external_entity.added_via,
@@ -69,7 +69,7 @@ def unlink_case_to_external_entity_and_emit(
     # Delete and send events
     case_external_entity.delete()
     emit_event(
-        detail_type=DetailType.CaseEntityRelationshipStateChange.value,
+        detail_type=DetailType.CaseRelationshipStateChange.value,
         event_detail_model=relationship_change_event,
     )
     return case_external_entity
