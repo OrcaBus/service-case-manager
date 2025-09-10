@@ -12,16 +12,16 @@ from pydantic import BaseModel, Field
 
 
 class Source(Enum):
-    orcabus_casemanager = 'orcabus.casemanager'
+    orcabus_casemanager = "orcabus.casemanager"
 
 
 class DetailType(Enum):
-    CaseRelationshipUpdate = 'CaseRelationshipUpdate'
+    CaseRelationshipUpdate = "CaseRelationshipUpdate"
 
 
 class Action(Enum):
-    CREATE = 'CREATE'
-    DELETE = 'DELETE'
+    CREATE = "CREATE"
+    DELETE = "DELETE"
 
 
 class CaseRelationshipUpdate(BaseModel):
@@ -39,5 +39,5 @@ class CaseRelationshipUpdateEvent(BaseModel):
     time: Optional[datetime] = None
     version: Optional[str] = None
     account: Optional[str] = None
-    detail_type: DetailType = Field(..., alias='detail-type')
+    detail_type: DetailType = Field(..., alias="detail-type")
     detail: CaseRelationshipUpdate
