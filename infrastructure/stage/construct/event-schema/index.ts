@@ -12,10 +12,16 @@ export class EventSchemaConstruct extends Construct {
 
     // case-entity link schema
     this.constructSchema({
-      name: `${this.SCHEMA_REGISTRY_NAME}@CaseEntityLinkEvent`,
+      name: `${this.SCHEMA_REGISTRY_NAME}@CaseRelationshipStateChange`,
       schemaPath:
-        '../../../../case-manager/app/schemas/events/case_external_entity_relationship_created.json',
-      description: 'Schema for linking cases to the external entities',
+        '../../../../case-manager/app/schemas/events/CaseRelationshipStateChange.schema.json',
+      description: 'Schema for case-entity relationship state change events',
+    });
+
+    this.constructSchema({
+      name: `${this.SCHEMA_REGISTRY_NAME}@CaseRelationshipUpdate`,
+      schemaPath: '../../../../case-manager/app/schemas/events/CaseRelationshipUpdate.schema.json',
+      description: 'Schema for case-entity relationship update events',
     });
   }
 

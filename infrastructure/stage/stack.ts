@@ -14,6 +14,7 @@ import {
   DB_CLUSTER_RESOURCE_ID_PARAMETER_NAME,
 } from '@orcabus/platform-cdk-constructs/shared-config/database';
 import { EventSchemaConstruct } from './construct/event-schema';
+import { LambdaCaseUpdateEvent } from './construct/lambda-update-event';
 
 export type CaseManagerStackProps = {
   /**
@@ -104,5 +105,11 @@ export class CaseManagerStack extends Stack {
     });
 
     new EventSchemaConstruct(this, 'EventSchema');
+
+    new LambdaCaseUpdateEvent(this, 'LambdaCaseUpdateEvent', {
+      basicLambdaConfig: basicLambdaConfig,
+      databaseCluster: dbCluster,
+      databaseName: this.CASE_MANAGER_DB_NAME,
+    });
   }
 }

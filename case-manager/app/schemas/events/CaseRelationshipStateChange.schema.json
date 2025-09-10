@@ -1,0 +1,68 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "$id": "https://raw.githubusercontent.com/OrcaBus/case-manager/refs/heads/main/case-manager/app/schemas/events/case_external_entity_relationship_created.json",
+  "description": "EventBridge event schema for case relationship state changes with external entities.",
+  "title": "CaseRelationshipStateChangeEvent",
+  "type": "object",
+  "required": ["detail-type", "detail", "source"],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "region": {
+      "type": "string"
+    },
+    "resources": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "source": {
+      "enum": ["orcabus.casemanager"]
+    },
+    "time": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "version": {
+      "type": "string"
+    },
+    "account": {
+      "type": "string"
+    },
+    "detail-type": {
+      "enum": ["CaseRelationshipStateChange"]
+    },
+    "detail": {
+      "$ref": "#/definitions/CaseRelationshipStateChange"
+    }
+  },
+  "definitions": {
+    "CaseRelationshipStateChange": {
+      "type": "object",
+      "required": ["action", "refId", "addedVia", "timestamp", "case", "externalEntity"],
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": ["CREATE", "DELETE"]
+        },
+        "refId": {
+          "type": "string"
+        },
+        "addedVia": {
+          "type": "string"
+        },
+        "timestamp": {
+          "type": "string"
+        },
+        "case": {
+          "type": "object"
+        },
+        "externalEntity": {
+          "type": "object"
+        }
+      }
+    }
+  }
+}

@@ -1,8 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-04/schema#",
   "$id": "https://raw.githubusercontent.com/OrcaBus/case-manager/refs/heads/main/case-manager/app/schemas/events/case_external_entity_relationship_created.json",
-  "description": "EventBridge custom event schema for case external entity relationship events.",
-  "title": "CaseExternalEntityRelationshipAWSEvent",
+  "description": "EventBridge event schema for updates to relationships between cases and external entities.",
+  "title": "CaseRelationshipUpdateEvent",
   "type": "object",
   "required": ["detail-type", "detail", "source"],
   "properties": {
@@ -32,28 +32,22 @@
       "type": "string"
     },
     "detail-type": {
-      "enum": ["CaseEntityRelationshipStateChange", "CaseEntityRelationshipUpdate"]
+      "type": "string"
     },
     "detail": {
-      "$ref": "#/definitions/CaseExternalEntityRelationshipChange"
+      "$ref": "#/definitions/CaseRelationshipUpdate"
     }
   },
   "definitions": {
-    "CaseExternalEntityRelationshipChange": {
+    "CaseRelationshipUpdate": {
       "type": "object",
-      "required": ["action", "refId", "addedVia", "timestamp", "case", "externalEntity"],
+      "required": ["action", "addedVia", "case", "externalEntity"],
       "properties": {
         "action": {
           "type": "string",
           "enum": ["CREATE", "DELETE"]
         },
-        "refId": {
-          "type": "string"
-        },
         "addedVia": {
-          "type": "string"
-        },
-        "timestamp": {
           "type": "string"
         },
         "case": {
