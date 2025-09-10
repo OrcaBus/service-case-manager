@@ -51,6 +51,9 @@ class CaseExternalEntityLink(models.Model):
     )
     timestamp = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        unique_together = ["case", "external_entity"]
+
 
 class CaseUserLink(models.Model):
     """
@@ -71,3 +74,6 @@ class CaseUserLink(models.Model):
         help_text="Some description of the user in the case (e.g. 'Case Owner', 'Case Manager', etc.)",
     )
     timestamp = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ["case", "user"]
