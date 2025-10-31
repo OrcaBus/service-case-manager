@@ -1,7 +1,7 @@
 import os
 import logging
 import requests
-
+from typing import Literal
 from django.db import transaction
 
 from app.models import ExternalEntity, Case, CaseExternalEntityLink
@@ -15,12 +15,15 @@ headers = {"Authorization": f"Bearer {jwt}"}
 
 
 @transaction.atomic
-def create_case_from_library_findings():
+def create_case_from_library_findings(case_type: Literal["cttso", "wgts"] = None, library_id_array: list[str] = None):
     """
     Query the library API to retrieve libraries, then for each, query associated workflows and analyses for years 2024 and 2025.
     """
-    create_cttso_cases()
-    create_wgts_cases()
+
+    if case_type == "cttso" or case_type is None:
+        create_cttso_cases(library_id_array=library_id_array)
+    if case_type == "wgts" or case_type is None:
+        create_wgts_cases(library_id_array=library_id_array)
 
 
 def get_library_request(query_params: str) -> list[dict]:
@@ -105,16 +108,19 @@ def get_workflow_run_detail(orcabus_id: str) -> dict:
     return response.json()
 
 
-def create_cttso_cases():
+def create_cttso_cases(library_id_array: list[str] = None):
     """
     Create ctTSO cases from ctDNA libraries (manual retrospective).
     """
     logger.info("Creating ctTSO cases")
-    query_params = "phenotype=tumor&type=ctDNA"
+    if library_id_array:
+        query_params = "&".join([f"libraryId={lib_id}" for lib_id in library_id_array])
+    else:
+        query_params = "phenotype=tumor&type=ctDNA"
+
     libraries = get_library_request(query_params)
 
     workflow_names = [
-        "bclconvert-interop-qc",
         "dragen-tso500-ctdna",
         "pieriandx-tso500-ctdna",
         "cttsov2",
@@ -129,10 +135,11 @@ def create_cttso_cases():
             external_entity_set__orcabus_id=orcabus_id,
             defaults={
                 "title": f"cttso-{library_id}",
-                "description": "auto generated retrospect"
+                "description": "retrospective case (auto-generated)"
             }
         )
 
+        # Only proceed if the case has more than just the library linked as an external entity
         if not is_new and case.external_entity_set.count() > 1:
             logger.info(f"Library {library_id} already has a linked case, skipping.")
             continue
@@ -166,12 +173,17 @@ def create_cttso_cases():
             CaseExternalEntityLink.objects.get_or_create(case=case, external_entity=wfr_entity)
 
 
-def create_wgts_cases():
+def create_wgts_cases(library_id_array: list[str] = None):
     """
     Create WGTS tumor-normal cases from WGS libraries (manual retrospective).
     """
     logger.info("Creating WGTS tumor-normal cases")
-    query_params = "phenotype=tumor&type=WGS"
+
+    if library_id_array:
+        query_params = "&".join([f"libraryId={lib_id}" for lib_id in library_id_array])
+    else:
+        query_params = "phenotype=tumor&type=WGS"
+
     libraries = get_library_request(query_params)
 
     workflow_names = [
@@ -192,10 +204,10 @@ def create_wgts_cases():
             external_entity_set__orcabus_id=orcabus_id,
             defaults={
                 "title": f"ctdna-{library_id}",
-                "description": "manual retrospective script"
+                "description": "retrospective case (auto-generated)"
             }
         )
-
+        # Only proceed if the case has more than just the library linked as an external entity
         if not is_new and case.external_entity_set.count() > 1:
             logger.info(f"Library {library_id} already has a linked case, skipping.")
             continue
