@@ -30,7 +30,7 @@ def get_library_request(query_params: str) -> list[dict]:
     """
     Get libraries from the metadata service based on query parameters. Only returns libraries from years 24 and 25.
     """
-    base_url = os.environ.get("METADATA_BASE_URL").rstrip("/")
+    base_url = f"https://metadata.{os.environ.get("DOMAIN_NAME").rstrip("/")}"
     library_url = f"{base_url}/api/v1/library/?{query_params}&ordering=-orcabus_id&rowsPerPage=100"
     libraries = []
 
@@ -99,7 +99,7 @@ def get_workflow_run_detail(orcabus_id: str) -> dict:
     """
     Get workflow run details for a specific orcabus_id.
     """
-    base_url = os.environ.get("WORKFLOW_BASE_URL").rstrip("/")
+    base_url = f"https://workflow.{os.environ.get("DOMAIN_NAME").rstrip("/")}"
     workflow_url = f"{base_url}/api/v1/workflowrun/{orcabus_id}/"
     logger.info(f"Querying detail: {orcabus_id}")
 

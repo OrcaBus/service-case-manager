@@ -15,6 +15,7 @@ import {
 } from '@orcabus/platform-cdk-constructs/shared-config/database';
 import { EventSchemaConstruct } from './construct/event-schema';
 import { LambdaCaseUpdateEvent } from './construct/lambda-update-event';
+import { LambdaCaseFinderConstruct } from './construct/lambda-case-finder';
 
 export type CaseManagerStackProps = {
   /**
@@ -110,6 +111,13 @@ export class CaseManagerStack extends Stack {
       basicLambdaConfig: basicLambdaConfig,
       databaseCluster: dbCluster,
       databaseName: this.CASE_MANAGER_DB_NAME,
+    });
+
+    new LambdaCaseFinderConstruct(this, 'CaseFinderLambda', {
+      basicLambdaConfig: basicLambdaConfig,
+      databaseCluster: dbCluster,
+      databaseName: this.CASE_MANAGER_DB_NAME,
+      vpc: vpc,
     });
   }
 }
