@@ -15,7 +15,9 @@ headers = {"Authorization": f"Bearer {jwt}"}
 
 
 @transaction.atomic
-def create_case_from_library_findings(case_type: Literal["cttso", "wgts"] = None, library_id_array: list[str] = None):
+def create_case_from_library_findings(
+    case_type: Literal["cttso", "wgts"] = None, library_id_array: list[str] = None
+):
     """
     Query the library API to retrieve libraries, then for each, query associated workflows and analyses for years 2024 and 2025.
     """
@@ -46,12 +48,14 @@ def get_library_request(query_params: str) -> list[dict]:
             if get_first_two_digits(library_id) not in ["24", "25"]:
                 logger.info("No more results matching year 24 or 25")
                 break
-            libraries.append({
-                "library_id": library_id,
-                "orcabus_id": lib.get("orcabusId")[-26:],
-                "type": lib.get("type"),
-                "assay": lib.get("assay"),
-            })
+            libraries.append(
+                {
+                    "library_id": library_id,
+                    "orcabus_id": lib.get("orcabusId")[-26:],
+                    "type": lib.get("type"),
+                    "assay": lib.get("assay"),
+                }
+            )
 
         next_page = data.get("links", {}).get("next")
         if not next_page:
@@ -78,13 +82,15 @@ def get_workflow_run_request(query_params: str) -> list[dict]:
         results = data.get("results", [])
 
         for wfr in results:
-            workflow_runs.append({
-                "orcabus_id": wfr.get("orcabusId")[-26:],
-                "prefix": "wfr",
-                "type": "workflow_run",
-                "service_name": "workflow",
-                "alias": wfr.get("portalRunId"),
-            })
+            workflow_runs.append(
+                {
+                    "orcabus_id": wfr.get("orcabusId")[-26:],
+                    "prefix": "wfr",
+                    "type": "workflow_run",
+                    "service_name": "workflow",
+                    "alias": wfr.get("portalRunId"),
+                }
+            )
 
         next_page = data.get("links", {}).get("next")
         if not next_page:
@@ -124,7 +130,7 @@ def create_cttso_cases(library_id_array: list[str] = None):
         "dragen-tso500-ctdna",
         "pieriandx-tso500-ctdna",
         "cttsov2",
-        "pieriandx"
+        "pieriandx",
     ]
 
     for lib in libraries:
@@ -135,8 +141,8 @@ def create_cttso_cases(library_id_array: list[str] = None):
             external_entity_set__orcabus_id=orcabus_id,
             defaults={
                 "title": f"cttso-{library_id}",
-                "description": "retrospective case (auto-generated)"
-            }
+                "description": "retrospective case (auto-generated)",
+            },
         )
 
         # Only proceed if the case has more than just the library linked as an external entity
@@ -151,12 +157,16 @@ def create_cttso_cases(library_id_array: list[str] = None):
                 "prefix": "lib",
                 "type": "library",
                 "service_name": "metadata",
-                "alias": library_id
-            }
+                "alias": library_id,
+            },
         )
-        CaseExternalEntityLink.objects.get_or_create(case=case, external_entity=lib_entity)
+        CaseExternalEntityLink.objects.get_or_create(
+            case=case, external_entity=lib_entity
+        )
 
-        workflow_query = [f"libraries__library_id={library_id}"] + [f"workflow__name={name}" for name in workflow_names]
+        workflow_query = [f"libraries__library_id={library_id}"] + [
+            f"workflow__name={name}" for name in workflow_names
+        ]
         workflow_runs = get_workflow_run_request("&".join(workflow_query))
 
         for workflow_run in workflow_runs:
@@ -167,10 +177,12 @@ def create_cttso_cases(library_id_array: list[str] = None):
                     "prefix": workflow_run["prefix"],
                     "type": workflow_run["type"],
                     "service_name": workflow_run["service_name"],
-                    "alias": workflow_run["alias"]
-                }
+                    "alias": workflow_run["alias"],
+                },
             )
-            CaseExternalEntityLink.objects.get_or_create(case=case, external_entity=wfr_entity)
+            CaseExternalEntityLink.objects.get_or_create(
+                case=case, external_entity=wfr_entity
+            )
 
 
 def create_wgts_cases(library_id_array: list[str] = None):
@@ -193,7 +205,7 @@ def create_wgts_cases(library_id_array: list[str] = None):
         "tumor-normal",
         "oncoanalyser-wgts-dna",
         "dragen-wgts-dna",
-        "sash"
+        "sash",
     ]
 
     for lib in libraries:
@@ -204,15 +216,17 @@ def create_wgts_cases(library_id_array: list[str] = None):
             external_entity_set__orcabus_id=orcabus_id,
             defaults={
                 "title": f"ctdna-{library_id}",
-                "description": "retrospective case (auto-generated)"
-            }
+                "description": "retrospective case (auto-generated)",
+            },
         )
         # Only proceed if the case has more than just the library linked as an external entity
         if not is_new and case.external_entity_set.count() > 1:
             logger.info(f"Library {library_id} already has a linked case, skipping.")
             continue
 
-        workflow_query = [f"libraries__library_id={library_id}"] + [f"workflow__name={name}" for name in workflow_names]
+        workflow_query = [f"libraries__library_id={library_id}"] + [
+            f"workflow__name={name}" for name in workflow_names
+        ]
         workflow_runs = get_workflow_run_request("&".join(workflow_query))
 
         # Track all linked libraries (orcabus_id, library_id)
@@ -226,10 +240,12 @@ def create_wgts_cases(library_id_array: list[str] = None):
                     "prefix": workflow_run["prefix"],
                     "type": workflow_run["type"],
                     "service_name": workflow_run["service_name"],
-                    "alias": workflow_run["alias"]
-                }
+                    "alias": workflow_run["alias"],
+                },
             )
-            CaseExternalEntityLink.objects.get_or_create(case=case, external_entity=wfr_entity)
+            CaseExternalEntityLink.objects.get_or_create(
+                case=case, external_entity=wfr_entity
+            )
 
             # Get libraries linked to this workflow run
             wfr_detail = get_workflow_run_detail(wfr_orcabus_id)
@@ -247,7 +263,9 @@ def create_wgts_cases(library_id_array: list[str] = None):
                     "prefix": "lib",
                     "type": "library",
                     "service_name": "metadata",
-                    "alias": linked_library_id
-                }
+                    "alias": linked_library_id,
+                },
             )
-            CaseExternalEntityLink.objects.get_or_create(case=case, external_entity=lib_entity)
+            CaseExternalEntityLink.objects.get_or_create(
+                case=case, external_entity=lib_entity
+            )

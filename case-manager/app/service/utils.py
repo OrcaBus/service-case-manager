@@ -3,14 +3,14 @@ import re
 import boto3
 import json
 
-client = boto3.client('secretsmanager')
+client = boto3.client("secretsmanager")
 
 
 def get_service_jwt() -> str:
     """
     Get the service JWT from AWS Secrets Manager using the local endpoint provided by AWS Lambda.
     """
-    secret_arn = os.environ.get('ORCABUS_SERVICE_JWT_SECRET_ARN')
+    secret_arn = os.environ.get("ORCABUS_SERVICE_JWT_SECRET_ARN")
     if not secret_arn:
         raise RuntimeError("SECRET_ARN environment variable is not set")
 
@@ -34,5 +34,5 @@ def get_first_two_digits(s):
     Returns:
         str or None: The first two digits found, or None if not found.
     """
-    match = re.search(r'\d{2}', s)
+    match = re.search(r"\d{2}", s)
     return match.group(0) if match else None

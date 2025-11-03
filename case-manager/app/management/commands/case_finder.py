@@ -8,6 +8,7 @@ class Command(BaseCommand):
     """
     python manage.py case_finder
     """
+
     help = "Delete all DB data"
 
     def handle(self, *args, **options):

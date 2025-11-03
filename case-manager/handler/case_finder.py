@@ -23,7 +23,9 @@ def handler(event, context) -> dict[str, str]:
         raise ValueError("library_id_array must be a list.")
 
     try:
-        create_case_from_library_findings(case_type=case_type, library_id_array=library_id_array)
+        create_case_from_library_findings(
+            case_type=case_type, library_id_array=library_id_array
+        )
         logger.info("Case creation succeeded.")
         return {"Status": "SUCCESS"}
     except Exception as e:
