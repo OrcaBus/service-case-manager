@@ -41,11 +41,11 @@ export class LambdaCaseFinderConstruct extends Construct {
       index: 'handler/case_finder.py',
       handler: 'handler',
       timeout: Duration.minutes(15),
-      environment: {
-        DOMAIN_NAME: domainName,
-        ORCABUS_SERVICE_JWT_SECRET_ARN: jwtSecret.secretArn,
-      },
+      // Not using environment here to prevent overriding from the basicLambdaConfig EnvVar
     });
+    caseFinderLambda.addEnvironment('DOMAIN_NAME', domainName);
+    caseFinderLambda.addEnvironment('ORCABUS_SERVICE_JWT_SECRET_ARN', jwtSecret.secretArn);
+
     props.databaseCluster.grantConnect(caseFinderLambda, props.databaseName);
     jwtSecret.grantRead(caseFinderLambda);
   }

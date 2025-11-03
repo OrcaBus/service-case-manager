@@ -66,7 +66,7 @@ def get_workflow_run_request(query_params: str) -> list[dict]:
     """
     Get workflow runs from the workflow service based on query parameters.
     """
-    base_url = os.environ.get("WORKFLOW_BASE_URL").rstrip("/")
+    base_url = f"https://workflow.{os.environ.get("DOMAIN_NAME").rstrip("/")}"
     workflow_url = f"{base_url}/api/v1/workflowrun/?{query_params}&ordering=-orcabus_id&rowsPerPage=100"
     workflow_runs = []
 
