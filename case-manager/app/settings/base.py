@@ -173,13 +173,6 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "The Case Manager API for UMCCR.",
     "VERSION": "0.0.1",
     "SERVE_INCLUDE_SCHEMA": False,
-    "SECURITY": [
-        {
-            "type": "http",
-            "scheme": "bearer",
-            "bearerFormat": "JWT",
-        }
-    ],
     "CONTACT": {"name": "UMCCR", "email": "services@umccr.org"},
     "LICENSE": {
         "name": "MIT License",
