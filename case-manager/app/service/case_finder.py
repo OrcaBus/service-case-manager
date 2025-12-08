@@ -30,7 +30,7 @@ class CttsoPgsql:
             SELECT orcabus_id, library_id
             FROM app_library
             WHERE phenotype='tumor' AND type='ctDNA' AND regexp_like(library_id, '^\\D+(?:24|25).*$')
-            ORDER BY orcabus_id DESC;
+            ORDER BY orcabus_id ASC;
         """).strip()
         self.mm_cur.execute(sql_statement)
 
@@ -146,7 +146,7 @@ class WgtsPgsql:
             SELECT orcabus_id, library_id
             FROM app_library
             WHERE phenotype='tumor' AND type='WGS' AND regexp_like(library_id, '^\\D+(?:24|25).*$')
-            ORDER BY orcabus_id DESC;
+            ORDER BY orcabus_id ASC;
         """).strip()
         self.mm_cur.execute(sql_statement)
 
