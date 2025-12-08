@@ -18,27 +18,32 @@ class CttsoPgsql:
 
     def __init__(self):
         self.mm_conn = psycopg.connect(
-            f"host={db_host} port={db_port} dbname=metadata_manager user={db_user} password={db_password}")
+            f"host={db_host} port={db_port} dbname=metadata_manager user={db_user} password={db_password}"
+        )
         self.mm_cur = self.mm_conn.cursor()
 
         self.wfm_conn = psycopg.connect(
-            f"host={db_host} port={db_port} dbname=workflow_manager user={db_user} password={db_password}")
+            f"host={db_host} port={db_port} dbname=workflow_manager user={db_user} password={db_password}"
+        )
         self.wfm_cur = self.wfm_conn.cursor()
 
     def set_mm_cursor(self):
-        sql_statement = textwrap.dedent(f"""
+        sql_statement = textwrap.dedent(
+            f"""
             SELECT orcabus_id, library_id
             FROM app_library
             WHERE phenotype='tumor' AND type='ctDNA' AND regexp_like(library_id, '^\\D+(?:24|25).*$')
             ORDER BY orcabus_id ASC;
-        """).strip()
+        """
+        ).strip()
         self.mm_cur.execute(sql_statement)
 
     def get_mm_cursor_results(self):
         return self.mm_cur.fetchmany(100)
 
     def set_wfr_cursor(self, library_orcabus_id: List[str]):
-        sql_statement = textwrap.dedent(f"""
+        sql_statement = textwrap.dedent(
+            f"""
             SELECT
                 wf_lib_assn.library_id as library_orcabus_id,
                 wf_run.orcabus_id as workflow_run_orcabus_id,
@@ -59,7 +64,8 @@ class CttsoPgsql:
                     'pieriandx'
                 )
             ORDER BY wf_lib_assn.library_id DESC;
-        """).strip()
+        """
+        ).strip()
         self.wfm_cur.execute(sql_statement)
 
     def get_wfr_cursor_results(self):
@@ -81,7 +87,7 @@ def cttso_case_builder():
     while library_set:
         libraries_case_dict = {}
 
-        for (orc_id, lib_id) in library_set:
+        for orc_id, lib_id in library_set:
             case, is_new = Case.objects.get_or_create(
                 external_entity_set__orcabus_id=orc_id,
                 defaults={
@@ -134,27 +140,32 @@ class WgtsPgsql:
 
     def __init__(self):
         self.mm_conn = psycopg.connect(
-            f"host={db_host} port={db_port} dbname=metadata_manager user={db_user} password={db_password}")
+            f"host={db_host} port={db_port} dbname=metadata_manager user={db_user} password={db_password}"
+        )
         self.mm_cur = self.mm_conn.cursor()
 
         self.wfm_conn = psycopg.connect(
-            f"host={db_host} port={db_port} dbname=workflow_manager user={db_user} password={db_password}")
+            f"host={db_host} port={db_port} dbname=workflow_manager user={db_user} password={db_password}"
+        )
         self.wfm_cur = self.wfm_conn.cursor()
 
     def set_mm_cursor(self):
-        sql_statement = textwrap.dedent(f"""
+        sql_statement = textwrap.dedent(
+            f"""
             SELECT orcabus_id, library_id
             FROM app_library
             WHERE phenotype='tumor' AND type='WGS' AND regexp_like(library_id, '^\\D+(?:24|25).*$')
             ORDER BY orcabus_id ASC;
-        """).strip()
+        """
+        ).strip()
         self.mm_cur.execute(sql_statement)
 
     def get_mm_cursor_results(self):
         return self.mm_cur.fetchmany(100)
 
     def set_wfr_cursor(self, library_orcabus_id: List[str]):
-        sql_statement = textwrap.dedent(f"""
+        sql_statement = textwrap.dedent(
+            f"""
             SELECT DISTINCT
                 wf_lib_assn.library_id as library_orcabus_id,
                 wf_lib.library_id as library_id_alias,
@@ -184,7 +195,8 @@ class WgtsPgsql:
                     'sash'
                 )
             ORDER BY is_tumor_library DESC;
-        """).strip()
+        """
+        ).strip()
         self.wfm_cur.execute(sql_statement)
 
     def get_wfr_cursor_results(self):
@@ -207,7 +219,7 @@ def wgts_case_builder():
 
         libraries_case_dict = {}
 
-        for (orc_id, lib_id) in library_set:
+        for orc_id, lib_id in library_set:
             case, is_new = Case.objects.get_or_create(
                 external_entity_set__orcabus_id=orc_id,
                 defaults={
@@ -239,7 +251,13 @@ def wgts_case_builder():
         workflow_runs = pgsql.get_wfr_cursor_results()
         # the following dict is just
         workflow_runs_case_dict = {}
-        for library_orcabus_id, library_id, wf_run_orcabus_id, portal_run_id, is_tumor_lib in workflow_runs:
+        for (
+            library_orcabus_id,
+            library_id,
+            wf_run_orcabus_id,
+            portal_run_id,
+            is_tumor_lib,
+        ) in workflow_runs:
 
             if is_tumor_lib:
                 # The result will be descending so the first match is the tumor library
