@@ -17,7 +17,6 @@ db_password = ro_secret.get("password", "orcabus")
 class CttsoPgsql:
 
     def __init__(self):
-        print('connecting')
         self.mm_conn = psycopg.connect(
             f"host={db_host} port={db_port} dbname=metadata_manager user={db_user} password={db_password}")
         self.mm_cur = self.mm_conn.cursor()
@@ -25,8 +24,6 @@ class CttsoPgsql:
         self.wfm_conn = psycopg.connect(
             f"host={db_host} port={db_port} dbname=workflow_manager user={db_user} password={db_password}")
         self.wfm_cur = self.wfm_conn.cursor()
-        print('connected')
-
 
     def set_mm_cursor(self):
         sql_statement = textwrap.dedent(f"""
@@ -38,7 +35,6 @@ class CttsoPgsql:
         self.mm_cur.execute(sql_statement)
 
     def get_mm_cursor_results(self):
-        print("quering")
         return self.mm_cur.fetchmany(100)
 
     def set_wfr_cursor(self, library_orcabus_id: List[str]):
@@ -83,7 +79,6 @@ def cttso_case_builder():
     library_set = pgsql.get_mm_cursor_results()
 
     while library_set:
-        print('hello')
         libraries_case_dict = {}
 
         for (orc_id, lib_id) in library_set:
