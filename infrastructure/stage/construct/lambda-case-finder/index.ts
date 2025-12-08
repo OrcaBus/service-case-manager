@@ -3,7 +3,6 @@ import { PythonFunction, PythonFunctionProps } from '@aws-cdk/aws-lambda-python-
 import { IDatabaseCluster } from 'aws-cdk-lib/aws-rds';
 import { IVpc } from 'aws-cdk-lib/aws-ec2';
 import { Duration } from 'aws-cdk-lib';
-import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import { Secret } from 'aws-cdk-lib/aws-secretsmanager';
 
 type LambdaProps = {
@@ -29,12 +28,7 @@ export class LambdaCaseFinderConstruct extends Construct {
   constructor(scope: Construct, id: string, props: LambdaProps) {
     super(scope, id);
 
-    const domainName = StringParameter.valueForStringParameter(this, '/hosted_zone/umccr/name');
-    const jwtSecret = Secret.fromSecretNameV2(
-      this,
-      'JwtSecretService',
-      'orcabus/token-service-jwt'
-    );
+    const roOrcabusDbCreds = Secret.fromSecretNameV2(this, 'RoOrcabusDbCreds', 'orcabus/ro-user');
 
     const caseFinderLambda = new PythonFunction(this, 'CaseFinderLambda', {
       ...props.basicLambdaConfig,
@@ -43,10 +37,9 @@ export class LambdaCaseFinderConstruct extends Construct {
       timeout: Duration.minutes(15),
       // Not using environment here to prevent overriding from the basicLambdaConfig EnvVar
     });
-    caseFinderLambda.addEnvironment('DOMAIN_NAME', domainName);
-    caseFinderLambda.addEnvironment('ORCABUS_SERVICE_JWT_SECRET_ARN', jwtSecret.secretArn);
+    caseFinderLambda.addEnvironment('ORCABUS_RO_USER_SECRET_ARN', roOrcabusDbCreds.secretArn);
 
     props.databaseCluster.grantConnect(caseFinderLambda, props.databaseName);
-    jwtSecret.grantRead(caseFinderLambda);
+    roOrcabusDbCreds.grantRead(caseFinderLambda);
   }
 }

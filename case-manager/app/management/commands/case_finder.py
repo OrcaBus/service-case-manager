@@ -1,15 +1,15 @@
 from django.core.management import BaseCommand
 
-from app.service.case_finder import create_case_from_library_findings
+from app.service.case_finder import cttso_case_builder, wgts_case_builder
 
 
 # https://docs.djangoproject.com/en/5.0/howto/custom-management-commands/
 class Command(BaseCommand):
     """
-    python manage.py case_finder
+    python manage.py case_finder2
     """
 
-    help = "Delete all DB data"
-
     def handle(self, *args, **options):
-        create_case_from_library_findings()
+
+        cttso_case_builder()
+        wgts_case_builder()

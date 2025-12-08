@@ -36,3 +36,23 @@ def get_first_two_digits(s):
     """
     match = re.search(r"\d{2}", s)
     return match.group(0) if match else None
+
+
+def get_ro_orcabus_secret() -> dict[str, str | int]:
+    """
+    Retrieve a read-only secret from AWS Secrets Manager.
+
+    """
+    secret_arn = os.environ.get("ORCABUS_RO_USER_SECRET_ARN")
+    if not secret_arn:
+        return {}
+
+    response = client.get_secret_value(
+        SecretId=secret_arn,
+    )
+
+    db_secret = json.loads(response.get("SecretString", {}))
+    if not db_secret:
+        raise ValueError("no db_secret found in the secret manager")
+
+    return db_secret
