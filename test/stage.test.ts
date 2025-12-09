@@ -56,4 +56,14 @@ function applyNagSuppression(stack: Stack) {
     ],
     true
   );
+  NagSuppressions.addStackSuppressions(
+    stack,
+    [
+      {
+        id: 'AwsSolutions-L1',
+        reason: 'Allow to use non latest version of runtime',
+      },
+    ],
+    true
+  );
 }
