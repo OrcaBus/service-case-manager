@@ -17,6 +17,7 @@ fix-all: fix
 	@(cd case-manager && make fix)
 
 install:
+	@corepack enable
 	@pnpm install --frozen-lockfile
 
 test:

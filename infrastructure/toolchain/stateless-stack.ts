@@ -3,6 +3,7 @@ import { Construct } from 'constructs';
 import { DeploymentStackPipeline } from '@orcabus/platform-cdk-constructs/deployment-stack-pipeline';
 import { getStackProps } from '../stage/config';
 import { CaseManagerStack } from '../stage/stack';
+import { BuildSpec } from 'aws-cdk-lib/aws-codebuild';
 
 export class StatelessStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -16,6 +17,19 @@ export class StatelessStack extends cdk.Stack {
         beta: getStackProps('BETA'),
         gamma: getStackProps('GAMMA'),
         prod: getStackProps('PROD'),
+      },
+      unitAppTestConfig: {
+        partialBuildSpec: BuildSpec.fromObject({
+          phases: {
+            install: {
+              'runtime-versions': {
+                python: '3.13',
+              },
+            },
+          },
+          version: '0.2',
+        }),
+        command: ['cd case-manager', 'make test'],
       },
       pipelineName: 'OrcaBus-StatelessCaseManager',
       cdkSynthCmd: ['pnpm install --frozen-lockfile --ignore-scripts', 'pnpm cdk-stateless synth'],
