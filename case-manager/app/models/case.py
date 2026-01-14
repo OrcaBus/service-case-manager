@@ -23,8 +23,7 @@ class Case(BaseModel):
     type = models.CharField(blank=True, null=True)
     last_modified = models.DateTimeField(auto_now=True)
     creation_status = models.CharField(
-        choices=CaseStatus.choices,
-        blank=False, null=False
+        choices=CaseStatus.choices, blank=False, null=False
     )
     trello_url = models.URLField(blank=True, null=True)
 
