@@ -21,26 +21,31 @@
   "license": "MIT",
   "packageManager": "pnpm@10.8.0",
   "devDependencies": {
-    "@eslint/js": "^9.39.1",
+    "@eslint/js": "^9.39.2",
     "@types/jest": "^30.0.0",
-    "@types/node": "^25.0.1",
-    "aws-cdk": "^2.1034.0",
+    "@types/node": "^25.0.8",
+    "aws-cdk": "^2.1100.3",
     "cdk-nag": "^2.37.55",
-    "eslint": "^9.39.1",
-    "globals": "^16.5.0",
+    "eslint": "^9.39.2",
+    "globals": "^17.0.0",
     "jest": "^30.2.0",
-    "prettier": "^3.7.4",
+    "prettier": "^3.8.0",
     "test-js": "^0.0.4",
     "ts-jest": "^29.4.6",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.49.0"
+    "typescript-eslint": "^8.53.0"
   },
   "dependencies": {
-    "@aws-cdk/aws-lambda-python-alpha": "2.232.1-alpha.0",
-    "@orcabus/platform-cdk-constructs": "0.0.104",
-    "aws-cdk-lib": "^2.232.1",
+    "@aws-cdk/aws-lambda-python-alpha": "2.234.1-alpha.0",
+    "@orcabus/platform-cdk-constructs": "1.0.2",
+    "aws-cdk-lib": "^2.234.1",
     "case-manager": "link:",
     "constructs": "^10.4.4"
+  },
+  "pnpm": {
+    "overrides": {
+      "diff": ">=8.0.3"
+    }
   }
 }
