@@ -42,5 +42,10 @@
     "aws-cdk-lib": "^2.234.1",
     "case-manager": "link:",
     "constructs": "^10.4.4"
+  },
+  "pnpm": {
+    "overrides": {
+      "diff": ">=8.0.3"
+    }
   }
 }
