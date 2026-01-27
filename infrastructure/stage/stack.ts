@@ -98,11 +98,19 @@ export class CaseManagerStack extends Stack {
       vpc: vpc,
     });
 
+    const caseFinder = new LambdaCaseFinderConstruct(this, 'CaseFinderLambda', {
+      basicLambdaConfig: basicLambdaConfig,
+      databaseCluster: dbCluster,
+      databaseName: this.CASE_MANAGER_DB_NAME,
+      vpc: vpc,
+    });
+
     new LambdaAPIConstruct(this, 'APILambda', {
       basicLambdaConfig: basicLambdaConfig,
       databaseCluster: dbCluster,
       databaseName: this.CASE_MANAGER_DB_NAME,
       apiGatewayConstructProps: props.apiGatewayCognitoProps,
+      caseAutoInferLambda: caseFinder.lambda,
     });
 
     new EventSchemaConstruct(this, 'EventSchema');
@@ -111,13 +119,6 @@ export class CaseManagerStack extends Stack {
       basicLambdaConfig: basicLambdaConfig,
       databaseCluster: dbCluster,
       databaseName: this.CASE_MANAGER_DB_NAME,
-    });
-
-    new LambdaCaseFinderConstruct(this, 'CaseFinderLambda', {
-      basicLambdaConfig: basicLambdaConfig,
-      databaseCluster: dbCluster,
-      databaseName: this.CASE_MANAGER_DB_NAME,
-      vpc: vpc,
     });
   }
 }

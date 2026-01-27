@@ -36,6 +36,10 @@ type LambdaProps = {
    * The props for api-gateway
    */
   apiGatewayConstructProps: OrcaBusApiGatewayProps;
+  /**
+   * The lambda that will automatically auto infer cases
+   */
+  caseAutoInferLambda: PythonFunction;
 };
 
 export class LambdaAPIConstruct extends Construct {
@@ -59,6 +63,13 @@ export class LambdaAPIConstruct extends Construct {
       memorySize: 1024,
     });
     lambdaProps.databaseCluster.grantConnect(this.lambda, lambdaProps.databaseName);
+
+    // allow api lambda to invoke auto-infer case lambda
+    this.lambda.addEnvironment(
+      'CASE_FINDER_LAMBDA_ARN',
+      lambdaProps.caseAutoInferLambda.functionArn
+    );
+    lambdaProps.caseAutoInferLambda.grantInvoke(this.lambda);
 
     // pass the domain name for other services
     const hostedZoneName = StringParameter.valueFromLookup(this, '/hosted_zone/umccr/name');

@@ -1,3 +1,6 @@
+import os
+import boto3
+from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -128,3 +131,28 @@ class CaseViewSet(BaseViewSet):
         )
         link.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @extend_schema(
+        request=None,
+        responses={202: {"description": "Auto-inference process started"}},
+        description="Automatically infer and create case-entity links based on existing logic."
+    )
+    @action(
+        detail=False,
+        methods=['post'],
+        url_name='auto-infer',
+        url_path='auto-infer'
+    )
+    def auto_infer(self, request):
+        lambda_arn = os.environ['CASE_FINDER_LAMBDA_ARN']
+
+        client = boto3.client('lambda')
+        client.invoke(
+            FunctionName=lambda_arn,
+            InvocationType='Event',
+        )
+
+        return Response(
+            {"message": "Case auto-inference process has been started."},
+            status=status.HTTP_202_ACCEPTED
+        )
