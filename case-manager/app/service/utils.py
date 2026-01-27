@@ -12,7 +12,7 @@ def get_service_jwt() -> str:
     """
     secret_arn = os.environ.get("ORCABUS_SERVICE_JWT_SECRET_ARN")
     if not secret_arn:
-        raise RuntimeError("SECRET_ARN environment variable is not set")
+        raise RuntimeError("ORCABUS_SERVICE_JWT_SECRET_ARN environment variable is not set")
 
     response = client.get_secret_value(
         SecretId=secret_arn,
@@ -45,7 +45,7 @@ def get_ro_orcabus_secret() -> dict[str, str | int]:
     """
     secret_arn = os.environ.get("ORCABUS_RO_USER_SECRET_ARN")
     if not secret_arn:
-        return {}
+        raise RuntimeError("ORCABUS_RO_USER_SECRET_ARN environment variable is not set")
 
     response = client.get_secret_value(
         SecretId=secret_arn,

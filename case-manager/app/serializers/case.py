@@ -1,4 +1,4 @@
-from rest_framework.serializers import ModelSerializer
+from rest_framework.serializers import ModelSerializer, CharField
 from app.models import Case, CaseExternalEntityLink, CaseUserLink
 from app.serializers.utils import OrcabusIdSerializerMetaMixin
 
@@ -44,6 +44,9 @@ class CaseDetailSerializer(ModelSerializer):
 
 
 class CaseExternalEntityLinkCreateSerializer(ModelSerializer):
+    case = CharField()
+    external_entity = CharField()
+
     class Meta:
         model = CaseExternalEntityLink
         fields = "__all__"

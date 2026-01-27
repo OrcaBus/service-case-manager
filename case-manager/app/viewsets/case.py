@@ -14,6 +14,7 @@ from ..service.case import (
     link_case_to_external_entity_and_emit,
     unlink_case_to_external_entity_and_emit,
 )
+from ..service.external_entity import get_or_create_external_entity
 
 
 class CaseViewSet(BaseViewSet):
@@ -51,9 +52,7 @@ class CaseViewSet(BaseViewSet):
         external_entity_orcabus_id = data.get("external_entity", None)
 
         case = get_object_or_404(Case, pk=case_orcabus_id)
-        external_entity = get_object_or_404(
-            ExternalEntity, pk=external_entity_orcabus_id
-        )
+        external_entity = get_or_create_external_entity(external_entity_orcabus_id)
 
         case_entity_link = link_case_to_external_entity_and_emit(
             case, external_entity, added_via=data.get("added_via", None)
