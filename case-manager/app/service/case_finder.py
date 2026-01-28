@@ -192,7 +192,9 @@ class WgtsPgsql:
                     'tumor-normal',
                     'oncoanalyser-wgts-dna',
                     'dragen-wgts-dna',
-                    'sash'
+                    'sash',
+                    'wts',
+                    'dragen-wgts-rna'
                 )
             ORDER BY is_tumor_library DESC;
         """

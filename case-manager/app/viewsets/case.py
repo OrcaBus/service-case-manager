@@ -134,16 +134,16 @@ class CaseViewSet(BaseViewSet):
 
     @extend_schema(
         request=None,
-        responses={202: {"description": "Auto-inference process started"}},
-        description="Automatically infer and create case-entity links based on existing logic."
+        responses={202: {"description": "Case generation process started"}},
+        description="Automatically generate new cases based on existing library and runs."
     )
     @action(
         detail=False,
         methods=['post'],
-        url_name='auto-infer',
-        url_path='auto-infer'
+        url_name='generate',
+        url_path='generate'
     )
-    def auto_infer(self, request):
+    def generate(self, request):
         lambda_arn = os.environ['CASE_FINDER_LAMBDA_ARN']
 
         client = boto3.client('lambda')
@@ -153,6 +153,6 @@ class CaseViewSet(BaseViewSet):
         )
 
         return Response(
-            {"message": "Case auto-inference process has been started."},
+            {"message": "Case generation process has been started."},
             status=status.HTTP_202_ACCEPTED
         )

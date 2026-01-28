@@ -1,9 +1,16 @@
+from rest_framework.fields import ListField
 from rest_framework.serializers import ModelSerializer, CharField
 from app.models import Case, CaseExternalEntityLink, CaseUserLink
 from app.serializers.utils import OrcabusIdSerializerMetaMixin
 
 
+class StringListField(ListField):
+    child = CharField()
+
+
 class CaseSerializer(ModelSerializer):
+    alias = StringListField()
+
     class Meta(OrcabusIdSerializerMetaMixin):
         model = Case
         exclude = ["user_set", "external_entity_set"]
@@ -30,6 +37,7 @@ class CaseUserLinkSerializer(ModelSerializer):
 
 
 class CaseDetailSerializer(ModelSerializer):
+    alias = StringListField()
     external_entity_set = CaseExternalEntityLinkSerializer(
         source="caseexternalentitylink_set", many=True, read_only=True
     )
