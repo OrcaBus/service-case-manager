@@ -4,11 +4,11 @@
 Usage:
 - export DJANGO_SETTINGS_MODULE=app.settings.local
 """
+
 import sys
 
 
 from .base import *  # noqa
-
 
 DATABASES = {
     "default": {

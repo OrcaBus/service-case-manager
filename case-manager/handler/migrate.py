@@ -3,6 +3,7 @@
 
 Convenience AWS lambda handler for Django database migration command hook
 """
+
 import json
 import logging
 from django.core.management import execute_from_command_line

@@ -28,22 +28,19 @@ class CttsoPgsql:
         self.wfm_cur = self.wfm_conn.cursor()
 
     def set_mm_cursor(self):
-        sql_statement = textwrap.dedent(
-            f"""
+        sql_statement = textwrap.dedent(f"""
             SELECT orcabus_id, library_id
             FROM app_library
             WHERE phenotype='tumor' AND type='ctDNA' AND regexp_like(library_id, '^\\D+(?:24|25).*$')
             ORDER BY orcabus_id ASC;
-        """
-        ).strip()
+        """).strip()
         self.mm_cur.execute(sql_statement)
 
     def get_mm_cursor_results(self):
         return self.mm_cur.fetchmany(100)
 
     def set_wfr_cursor(self, library_orcabus_id: List[str]):
-        sql_statement = textwrap.dedent(
-            f"""
+        sql_statement = textwrap.dedent(f"""
             SELECT
                 wf_lib_assn.library_id as library_orcabus_id,
                 wf_run.orcabus_id as workflow_run_orcabus_id,
@@ -64,8 +61,7 @@ class CttsoPgsql:
                     'pieriandx'
                 )
             ORDER BY wf_lib_assn.library_id DESC;
-        """
-        ).strip()
+        """).strip()
         self.wfm_cur.execute(sql_statement)
 
     def get_wfr_cursor_results(self):
@@ -150,22 +146,19 @@ class WgtsPgsql:
         self.wfm_cur = self.wfm_conn.cursor()
 
     def set_mm_cursor(self):
-        sql_statement = textwrap.dedent(
-            f"""
+        sql_statement = textwrap.dedent(f"""
             SELECT orcabus_id, library_id
             FROM app_library
             WHERE phenotype='tumor' AND type='WGS' AND regexp_like(library_id, '^\\D+(?:24|25).*$')
             ORDER BY orcabus_id ASC;
-        """
-        ).strip()
+        """).strip()
         self.mm_cur.execute(sql_statement)
 
     def get_mm_cursor_results(self):
         return self.mm_cur.fetchmany(100)
 
     def set_wfr_cursor(self, library_orcabus_id: List[str]):
-        sql_statement = textwrap.dedent(
-            f"""
+        sql_statement = textwrap.dedent(f"""
             SELECT DISTINCT
                 wf_lib_assn.library_id as library_orcabus_id,
                 wf_lib.library_id as library_id_alias,
@@ -197,8 +190,7 @@ class WgtsPgsql:
                     'dragen-wgts-rna'
                 )
             ORDER BY is_tumor_library DESC;
-        """
-        ).strip()
+        """).strip()
         self.wfm_cur.execute(sql_statement)
 
     def get_wfr_cursor_results(self):
