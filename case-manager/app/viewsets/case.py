@@ -19,8 +19,6 @@ from ..service.case import (
 )
 from ..service.external_entity import get_or_create_external_entity
 
-client = boto3.client("lambda", region_name="ap-southeast-2")
-
 
 class CaseViewSet(BaseViewSet):
     serializer_class = CaseDetailSerializer
@@ -142,6 +140,7 @@ class CaseViewSet(BaseViewSet):
     @action(detail=False, methods=["post"], url_name="generate", url_path="generate")
     def generate(self, request):
         lambda_arn = os.environ["CASE_FINDER_LAMBDA_ARN"]
+        client = boto3.client("lambda", region_name="ap-southeast-2")
 
         client.invoke(
             FunctionName=lambda_arn,
