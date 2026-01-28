@@ -42,7 +42,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20.x'
+          node-version: '22.x'
           cache: 'pnpm'
 
       - run: corepack enable
@@ -58,6 +58,14 @@ jobs:
       - name: Install system-wide tools dependencies
         run: |
           pip3 install pre-commit detect-secrets black ggshield
+
+      - name: Print toolchain versions
+        run: |
+          node -v
+          python3 -V
+          pip3 -V
+          make --version
+          black --version
 
       - name: TruffleHog OSS
         uses: trufflesecurity/trufflehog@v3.34.0
