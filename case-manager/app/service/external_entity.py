@@ -26,18 +26,28 @@ def fetch_external_entity_data(orcabus_id: str):
     jwt_token = get_service_jwt()
     headers = {"Authorization": f"Bearer {jwt_token}"}
 
-    domain_name = os.environ['HOSTED_ZONE_NAME']
+    domain_name = os.environ["HOSTED_ZONE_NAME"]
 
     # Determine which services to check based on prefix
     if orcabus_id.startswith("wfr."):
-        services = [("workflow", f"https://workflow.{domain_name}/api/v1/workflowrun/{orcabus_id}")]
+        services = [
+            (
+                "workflow",
+                f"https://workflow.{domain_name}/api/v1/workflowrun/{orcabus_id}",
+            )
+        ]
     elif orcabus_id.startswith("lib."):
-        services = [("metadata", f"https://metadata.{domain_name}/api/v1/library/{orcabus_id}")]
+        services = [
+            ("metadata", f"https://metadata.{domain_name}/api/v1/library/{orcabus_id}")
+        ]
     else:
         # No prefix: try both services (workflow first)
         services = [
-            ("workflow", f"https://workflow.{domain_name}/api/v1/workflowrun/{orcabus_id}"),
-            ("metadata", f"https://metadata.{domain_name}/api/v1/library/{orcabus_id}")
+            (
+                "workflow",
+                f"https://workflow.{domain_name}/api/v1/workflowrun/{orcabus_id}",
+            ),
+            ("metadata", f"https://metadata.{domain_name}/api/v1/library/{orcabus_id}"),
         ]
 
     # Try each service
@@ -60,9 +70,7 @@ def fetch_external_entity_data(orcabus_id: str):
     raise Http404(f"No ExternalEntity matches the given orcabus_id: {orcabus_id}")
 
 
-def get_or_create_external_entity(
-        external_entity_orcabus_id: str
-) -> ExternalEntity:
+def get_or_create_external_entity(external_entity_orcabus_id: str) -> ExternalEntity:
     """
     Get or create external entity by orcabus_id
 
@@ -73,7 +81,9 @@ def get_or_create_external_entity(
     prefix lib. -> library
     """
     try:
-        external_entity = ExternalEntity.objects.get(orcabus_id=external_entity_orcabus_id)
+        external_entity = ExternalEntity.objects.get(
+            orcabus_id=external_entity_orcabus_id
+        )
         return external_entity
     except ObjectDoesNotExist:
         service, entity_data = fetch_external_entity_data(external_entity_orcabus_id)
@@ -86,7 +96,9 @@ def get_or_create_external_entity(
                 service_name="workflow",
                 alias=entity_data.get("portalRunId"),
             )
-            logger.info(f"Created workflow run external entity: {external_entity_orcabus_id}")
+            logger.info(
+                f"Created workflow run external entity: {external_entity_orcabus_id}"
+            )
             return external_entity
         elif service == "metadata":
             external_entity = ExternalEntity.objects.create(
@@ -94,10 +106,14 @@ def get_or_create_external_entity(
                 prefix="lib",
                 type="library",
                 service_name="metadata",
-                alias=entity_data.get("libraryId")
+                alias=entity_data.get("libraryId"),
             )
-            logger.info(f"Created library external entity: {external_entity_orcabus_id}")
+            logger.info(
+                f"Created library external entity: {external_entity_orcabus_id}"
+            )
             return external_entity
 
-        logger.error(f"Unknown service type '{service}' for external entity: {external_entity_orcabus_id}")
+        logger.error(
+            f"Unknown service type '{service}' for external entity: {external_entity_orcabus_id}"
+        )
         raise Http404("No ExternalEntity matches the given the orcabus_id.")

@@ -19,6 +19,8 @@ from ..service.case import (
 )
 from ..service.external_entity import get_or_create_external_entity
 
+client = boto3.client("lambda", region_name="ap-southeast-2")
+
 
 class CaseViewSet(BaseViewSet):
     serializer_class = CaseDetailSerializer
@@ -135,24 +137,18 @@ class CaseViewSet(BaseViewSet):
     @extend_schema(
         request=None,
         responses={202: {"description": "Case generation process started"}},
-        description="Automatically generate new cases based on existing library and runs."
+        description="Automatically generate new cases based on existing library and runs.",
     )
-    @action(
-        detail=False,
-        methods=['post'],
-        url_name='generate',
-        url_path='generate'
-    )
+    @action(detail=False, methods=["post"], url_name="generate", url_path="generate")
     def generate(self, request):
-        lambda_arn = os.environ['CASE_FINDER_LAMBDA_ARN']
+        lambda_arn = os.environ["CASE_FINDER_LAMBDA_ARN"]
 
-        client = boto3.client('lambda')
         client.invoke(
             FunctionName=lambda_arn,
-            InvocationType='Event',
+            InvocationType="Event",
         )
 
         return Response(
             {"message": "Case generation process has been started."},
-            status=status.HTTP_202_ACCEPTED
+            status=status.HTTP_202_ACCEPTED,
         )
