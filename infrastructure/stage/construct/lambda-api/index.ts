@@ -15,6 +15,9 @@ import {
 import { IDatabaseCluster } from 'aws-cdk-lib/aws-rds';
 import { EVENT_BUS_NAME } from '@orcabus/platform-cdk-constructs/shared-config/event-bridge';
 import { EventBus } from 'aws-cdk-lib/aws-events';
+import { Secret } from 'aws-cdk-lib/aws-secretsmanager';
+import { JWT_SECRET_NAME } from '@orcabus/platform-cdk-constructs/shared-config/secrets';
+import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 
 type LambdaProps = {
   /**
@@ -33,6 +36,10 @@ type LambdaProps = {
    * The props for api-gateway
    */
   apiGatewayConstructProps: OrcaBusApiGatewayProps;
+  /**
+   * The lambda that will automatically auto infer cases
+   */
+  caseAutoInferLambda: PythonFunction;
 };
 
 export class LambdaAPIConstruct extends Construct {
@@ -56,6 +63,26 @@ export class LambdaAPIConstruct extends Construct {
       memorySize: 1024,
     });
     lambdaProps.databaseCluster.grantConnect(this.lambda, lambdaProps.databaseName);
+
+    // allow api lambda to invoke auto-infer case lambda
+    this.lambda.addEnvironment(
+      'CASE_FINDER_LAMBDA_ARN',
+      lambdaProps.caseAutoInferLambda.functionArn
+    );
+    lambdaProps.caseAutoInferLambda.grantInvoke(this.lambda);
+
+    // pass the domain name for other services
+    const hostedZoneName = StringParameter.valueFromLookup(this, '/hosted_zone/umccr/name');
+    this.lambda.addEnvironment('HOSTED_ZONE_NAME', hostedZoneName);
+
+    // allow lambda to retrieve the service user JWT
+    const serviceUserJwtSecret = Secret.fromSecretNameV2(
+      this,
+      'serviceUserJwtSecret',
+      JWT_SECRET_NAME
+    );
+    this.lambda.addEnvironment('ORCABUS_SERVICE_JWT_SECRET_ARN', serviceUserJwtSecret.secretArn);
+    serviceUserJwtSecret.grantRead(this.lambda);
 
     // add some integration to the http api gw
     const apiIntegration = new HttpLambdaIntegration('ApiLambdaIntegration', this.lambda);

@@ -3,6 +3,7 @@
 
 See README https://github.com/logandk/serverless-wsgi
 """
+
 import serverless_wsgi
 
 from app.wsgi import application

@@ -41,7 +41,7 @@
   "definitions": {
     "CaseRelationshipStateChange": {
       "type": "object",
-      "required": ["action", "refId", "addedVia", "timestamp", "case", "externalEntity"],
+      "required": ["action", "refId", "timestamp", "case", "externalEntity"],
       "properties": {
         "action": {
           "type": "string",

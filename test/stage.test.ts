@@ -48,6 +48,11 @@ function applyNagSuppression(stack: Stack) {
   );
   NagSuppressions.addStackSuppressions(
     stack,
+    [{ id: 'AwsSolutions-IAM5', reason: 'Allow IAM entity contains wildcard permissions.' }],
+    true
+  );
+  NagSuppressions.addStackSuppressions(
+    stack,
     [
       {
         id: 'AwsSolutions-APIG4',

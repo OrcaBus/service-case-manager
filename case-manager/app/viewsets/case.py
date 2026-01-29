@@ -1,3 +1,6 @@
+import os
+import boto3
+from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -14,6 +17,7 @@ from ..service.case import (
     link_case_to_external_entity_and_emit,
     unlink_case_to_external_entity_and_emit,
 )
+from ..service.external_entity import get_or_create_external_entity
 
 
 class CaseViewSet(BaseViewSet):
@@ -51,9 +55,7 @@ class CaseViewSet(BaseViewSet):
         external_entity_orcabus_id = data.get("external_entity", None)
 
         case = get_object_or_404(Case, pk=case_orcabus_id)
-        external_entity = get_object_or_404(
-            ExternalEntity, pk=external_entity_orcabus_id
-        )
+        external_entity = get_or_create_external_entity(external_entity_orcabus_id)
 
         case_entity_link = link_case_to_external_entity_and_emit(
             case, external_entity, added_via=data.get("added_via", None)
@@ -129,3 +131,23 @@ class CaseViewSet(BaseViewSet):
         )
         link.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @extend_schema(
+        request=None,
+        responses={202: {"description": "Case generation process started"}},
+        description="Automatically generate new cases based on existing library and runs.",
+    )
+    @action(detail=False, methods=["post"], url_name="generate", url_path="generate")
+    def generate(self, request):
+        lambda_arn = os.environ["CASE_FINDER_LAMBDA_ARN"]
+        client = boto3.client("lambda", region_name="ap-southeast-2")
+
+        client.invoke(
+            FunctionName=lambda_arn,
+            InvocationType="Event",
+        )
+
+        return Response(
+            {"message": "Case generation process has been started."},
+            status=status.HTTP_202_ACCEPTED,
+        )

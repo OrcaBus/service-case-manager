@@ -26,6 +26,11 @@ class Case(BaseModel):
         choices=CaseStatus.choices, blank=False, null=False
     )
     trello_url = models.URLField(blank=True, null=True)
+    alias = models.JSONField(
+        blank=True,
+        null=True,
+        default=list,
+    )
 
     # Relationships
     user_set = models.ManyToManyField(
