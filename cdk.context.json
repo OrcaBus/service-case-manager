@@ -251,5 +251,7 @@
     "securityGroupId": "sg-02e363a39220c955f",
     "allowAllOutbound": false
   },
-  "ssm:account=843407916570:parameterName=/hosted_zone/umccr/name:region=ap-southeast-2": "dev.umccr.org"
+  "ssm:account=843407916570:parameterName=/hosted_zone/umccr/name:region=ap-southeast-2": "dev.umccr.org",
+  "ssm:account=455634345446:parameterName=/hosted_zone/umccr/name:region=ap-southeast-2": "stg.umccr.org",
+  "ssm:account=472057503814:parameterName=/hosted_zone/umccr/name:region=ap-southeast-2": "prod.umccr.org"
 }
