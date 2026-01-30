@@ -185,15 +185,42 @@ class WgtsPgsql:
                     'tumor-normal',
                     'oncoanalyser-wgts-dna',
                     'dragen-wgts-dna',
-                    'sash',
-                    'wts',
-                    'dragen-wgts-rna'
+                    'sash'
                 )
             ORDER BY is_tumor_library DESC;
         """).strip()
         self.wfm_cur.execute(sql_statement)
 
+    def set_wfr_wts_cursor(self, library_orcabus_id: str):
+        sql_statement = textwrap.dedent(f"""
+            SELECT DISTINCT
+                wf_lib_assn.library_id as library_orcabus_id,
+                wf_lib.library_id as library_id_alias,
+                wf_run.orcabus_id as workflow_run_orcabus_id,
+                wf_run.portal_run_id as portal_run_id
+            FROM (
+                workflow_manager_workflowrun AS wf_run
+                INNER JOIN workflow_manager_workflow AS workflow
+                    ON wf_run.workflow_id = workflow.orcabus_id
+                INNER JOIN workflow_manager_libraryassociation AS wf_lib_assn
+                    ON wf_run.orcabus_id = wf_lib_assn.workflow_run_id
+                INNER JOIN workflow_manager_library AS wf_lib
+                    ON wf_lib_assn.library_id = wf_lib.orcabus_id
+                INNER JOIN workflow_manager_libraryassociation AS wf_filter
+                    ON wf_run.orcabus_id = wf_filter.workflow_run_id
+                    AND wf_filter.library_id = '{library_orcabus_id}'
+            )
+            WHERE
+                workflow.name IN (
+                    'wts',
+                    'dragen-wgts-rna'
+                )
+            ORDER BY workflow_run_orcabus_id DESC;
+        """).strip()
+        self.wfm_cur.execute(sql_statement)
+
     def get_wfr_cursor_results(self):
+        # In general wfr_run from the query above should be less than 20, so not worrying about pagination here
         return self.wfm_cur.fetchall()
 
     def end(self):
@@ -243,17 +270,17 @@ def wgts_case_builder():
             continue
         pgsql.set_wfr_cursor(list(libraries_case_dict.keys()))
         workflow_runs = pgsql.get_wfr_cursor_results()
-        # the following dict is just
+
         workflow_runs_case_dict = {}
         for (
-            library_orcabus_id,
-            library_id,
-            wf_run_orcabus_id,
-            portal_run_id,
-            is_tumor_lib,
+                library_orcabus_id,
+                library_id,
+                wf_run_orcabus_id,
+                portal_run_id,
+                is_wgs_tumor_lib,  # is only WGS tumor library
         ) in workflow_runs:
 
-            if is_tumor_lib:
+            if is_wgs_tumor_lib:
                 # The result will be descending so the first match is the tumor library
                 wfr_entity, _ = ExternalEntity.objects.get_or_create(
                     orcabus_id=wf_run_orcabus_id,
@@ -286,4 +313,36 @@ def wgts_case_builder():
                     CaseExternalEntityLink.objects.get_or_create(
                         case=case, external_entity=lib_entity
                     )
+
+                    ####################
+                    # Linking the WTS wf_run
+                    ####################
+
+                    # The library here could be a WTS tumor library, if that so 'wts' or 'dragen-wgts-rna'
+                    # workflow run should be linked to the this case too
+
+                    # find the wts workflow run associated with this library
+                    pgsql.set_wfr_wts_cursor(library_orcabus_id)
+                    wts_workflow_runs = pgsql.get_wfr_cursor_results()
+
+                    for (
+                        wts_library_orcabus_id,
+                        wts_library_id,
+                        wts_wf_run_orcabus_id,
+                        wts_portal_run_id,
+                    ) in wts_workflow_runs:
+                        wts_wfr_entity, _ = ExternalEntity.objects.get_or_create(
+                            orcabus_id=wts_wf_run_orcabus_id,
+                            defaults={
+                                "prefix": "wfr",
+                                "type": "workflow_run",
+                                "service_name": "workflow",
+                                "alias": wts_portal_run_id,
+                            },
+                        )
+                        # using the same case as above when linking the WTS library in
+                        CaseExternalEntityLink.objects.get_or_create(
+                            case=case, external_entity=wts_wfr_entity
+                        )
+
     pgsql.end()
