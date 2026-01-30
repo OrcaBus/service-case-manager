@@ -273,11 +273,11 @@ def wgts_case_builder():
 
         workflow_runs_case_dict = {}
         for (
-                library_orcabus_id,
-                library_id,
-                wf_run_orcabus_id,
-                portal_run_id,
-                is_wgs_tumor_lib,  # is only WGS tumor library
+            library_orcabus_id,
+            library_id,
+            wf_run_orcabus_id,
+            portal_run_id,
+            is_wgs_tumor_lib,  # is only WGS tumor library
         ) in workflow_runs:
 
             if is_wgs_tumor_lib:
