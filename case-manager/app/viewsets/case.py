@@ -4,6 +4,7 @@ from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.mixins import DestroyModelMixin
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from app.models import Case, CaseExternalEntityLink, ExternalEntity, User, CaseUserLink
@@ -20,7 +21,7 @@ from ..service.case import (
 from ..service.external_entity import get_or_create_external_entity
 
 
-class CaseViewSet(BaseViewSet):
+class CaseViewSet(BaseViewSet, DestroyModelMixin):
     serializer_class = CaseDetailSerializer
     search_fields = Case.get_base_fields()
     queryset = Case.objects.all()

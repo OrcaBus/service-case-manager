@@ -9,7 +9,7 @@ class StringListField(ListField):
 
 
 class CaseSerializer(ModelSerializer):
-    alias = StringListField()
+    alias = StringListField(required=False)
 
     class Meta(OrcabusIdSerializerMetaMixin):
         model = Case
@@ -37,7 +37,7 @@ class CaseUserLinkSerializer(ModelSerializer):
 
 
 class CaseDetailSerializer(ModelSerializer):
-    alias = StringListField()
+    alias = StringListField(required=False)
     external_entity_set = CaseExternalEntityLinkSerializer(
         source="caseexternalentitylink_set", many=True, read_only=True
     )
