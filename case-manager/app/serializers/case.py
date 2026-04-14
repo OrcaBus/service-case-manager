@@ -1,5 +1,5 @@
 from rest_framework.fields import ListField
-from rest_framework.serializers import ModelSerializer, CharField
+from rest_framework.serializers import ModelSerializer, CharField, EmailField
 from app.models import Case, CaseExternalEntityLink, CaseUserLink
 from app.serializers.utils import OrcabusIdSerializerMetaMixin
 
@@ -52,7 +52,7 @@ class CaseDetailSerializer(ModelSerializer):
 
 
 class CaseExternalEntityLinkCreateSerializer(ModelSerializer):
-    case = CharField()
+    case = CharField(read_only=True)
     external_entity = CharField()
 
     class Meta:
@@ -61,6 +61,17 @@ class CaseExternalEntityLinkCreateSerializer(ModelSerializer):
 
 
 class CaseUserCreateSerializer(ModelSerializer):
+    case = CharField(read_only=True)
+    email = EmailField()
+
     class Meta:
         model = CaseUserLink
         fields = "__all__"
+
+
+class CaseHistorySerializer(CaseSerializer):
+    class Meta:
+        model = Case.history.model
+        fields = "__all__"
+
+    case = CharField(read_only=True)

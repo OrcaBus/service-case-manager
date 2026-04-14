@@ -15,22 +15,26 @@ class ExternalEntity(BaseModel):
     prefix = models.CharField(
         blank=True,
         null=True,
-        help_text="The prefix used in the orcabus_id. Each orcabus_id has a prefix that may correspond to the same or different service names. This indicates which entity the ID belongs to.",
+        help_text="The prefix in the orcabus_id, indicating the entity's type or source system. Used to distinguish "
+                  "between different entity types or services.",
     )
 
     type = models.CharField(
         blank=True,
         null=True,
-        help_text="The entity type within its service, local to that service. Typically, this matches the subpath to the entity, such as library, subject, or sequence.",
+        help_text="The entity type within its service, e.g., 'library', 'subject', or 'sequence'. Typically matches "
+                  "the subpath or resource type in the source service.",
     )
 
     service_name = models.CharField(
         blank=True,
         null=True,
-        help_text="The domain name or microservice name where the actual entity is stored. E.g. metadata, workflow, sequence",
+        help_text="The name of the microservice or domain where the entity is managed, e.g., 'metadata', 'workflow', "
+                  "or 'sequence'.",
     )
     alias = models.CharField(
         blank=True,
         null=True,
-        help_text="A human-readable name or alias for this entity, such as a library ID or workflow run ID, for easier identification than the orcabus_id.",
+        help_text="A human-friendly identifier for this entity, such as a library ID or workflow run ID, for easier "
+                  "recognition than the orcabus_id.",
     )

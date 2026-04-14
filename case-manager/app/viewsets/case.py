@@ -1,6 +1,5 @@
 import os
 import boto3
-from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -11,9 +10,10 @@ from app.models import Case, CaseExternalEntityLink, ExternalEntity, User, CaseU
 from app.serializers import (
     CaseDetailSerializer,
     CaseExternalEntityLinkCreateSerializer,
-    CaseUserCreateSerializer,
+    CaseUserCreateSerializer, CaseSerializer,
 )
-from .base import BaseViewSet
+from .base import BaseViewSetWithHistory
+from ..serializers.case import CaseHistorySerializer
 from ..service.case import (
     link_case_to_external_entity_and_emit,
     unlink_case_to_external_entity_and_emit,
@@ -21,7 +21,69 @@ from ..service.case import (
 from ..service.external_entity import get_or_create_external_entity
 
 
-class CaseViewSet(BaseViewSet, DestroyModelMixin):
+class CaseLinkMixin:
+
+    @extend_schema(
+        request=CaseExternalEntityLinkCreateSerializer,
+        responses=CaseExternalEntityLinkCreateSerializer,
+        description="Links an external entity to a case.",
+    )
+    @action(detail=True, methods=["post"], url_path="external-entity")
+    def link_external_entity(self, request, pk=None, *args, **kwargs):
+        serializer = CaseExternalEntityLinkCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        case = get_object_or_404(Case, pk=pk)
+        external_entity = get_or_create_external_entity(
+            serializer.validated_data["external_entity"]
+        )
+        link = link_case_to_external_entity_and_emit(
+            case, external_entity, added_via=serializer.validated_data.get("added_via")
+        )
+        return Response(CaseExternalEntityLinkCreateSerializer(link).data)
+
+    @extend_schema(responses={204: None}, description="Removes a link between an external entity and a case.")
+    @action(
+        detail=True, methods=["delete"],
+        url_path="external-entity/(?P<external_entity_orcabus_id>[^/]+)",
+    )
+    def unlink_external_entity(self, request, pk=None, external_entity_orcabus_id=None):
+        link = get_object_or_404(
+            CaseExternalEntityLink,
+            case_id=pk,
+            external_entity_id=external_entity_orcabus_id,
+        )
+        unlink_case_to_external_entity_and_emit(link)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @extend_schema(
+        request=CaseUserCreateSerializer,
+        responses=CaseUserCreateSerializer,
+        description="Links a user to a case.",
+    )
+    @action(detail=True, methods=["post"], url_path="user")
+    def link_user(self, request, pk=None, *args, **kwargs):
+        serializer = CaseUserCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        case = get_object_or_404(Case, pk=pk)
+        user, _ = User.objects.get_or_create(email=serializer.validated_data["email"])
+        link = CaseUserLink.objects.create(
+            case=case, user=user,
+            description=serializer.validated_data.get("description"),
+        )
+        return Response(CaseUserCreateSerializer(link).data)
+
+    @extend_schema(responses={204: None}, description="Unlinks a user from a case.")
+    @action(
+        detail=True, methods=["delete"],
+        url_path="user/(?P<user_orcabus_id>[^/]+)",
+    )
+    def unlink_user(self, request, pk=None, user_orcabus_id=None):
+        link = get_object_or_404(CaseUserLink, case_id=pk, user_id=user_orcabus_id)
+        link.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class CaseViewSet(BaseViewSetWithHistory, DestroyModelMixin, CaseLinkMixin):
     serializer_class = CaseDetailSerializer
     search_fields = Case.get_base_fields()
     queryset = Case.objects.all()
@@ -32,106 +94,10 @@ class CaseViewSet(BaseViewSet, DestroyModelMixin):
 
         return Case.objects.get_by_keyword(qs, **query_params)
 
-    @extend_schema(
-        request=CaseExternalEntityLinkCreateSerializer,
-        responses=CaseExternalEntityLinkCreateSerializer,
-        description="Links an external entity to a case.",
-    )
-    @action(
-        detail=False,
-        methods=["post"],
-        url_name="link/external-entity",
-        url_path="link/external-entity",
-    )
-    def create_case_external_entity_relationship(self, request, *args, **kwargs):
-        serializer = CaseExternalEntityLinkCreateSerializer(
-            data=request.data, many=False
-        )
-
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-        data = serializer.data
-        case_orcabus_id = data.get("case", None)
-        external_entity_orcabus_id = data.get("external_entity", None)
-
-        case = get_object_or_404(Case, pk=case_orcabus_id)
-        external_entity = get_or_create_external_entity(external_entity_orcabus_id)
-
-        case_entity_link = link_case_to_external_entity_and_emit(
-            case, external_entity, added_via=data.get("added_via", None)
-        )
-
-        res_data = CaseExternalEntityLinkCreateSerializer(case_entity_link).data
-
-        return Response(res_data)
-
-    @extend_schema(
-        responses={204: None},
-        description="Remove a link between external entity and the case.",
-    )
-    @action(
-        detail=True,
-        methods=["delete"],
-        url_name="remove_case_external_entity_relationship",
-        url_path="external-entity/(?P<external_entity_orcabus_id>[^/]+)",
-    )
-    def unlink_case_external_entity(self, request, *args, **kwargs):
-        case_orcabus_id = kwargs.get("pk", None)
-        external_entity_orcabus_id = kwargs.get("external_entity_orcabus_id", None)
-
-        link = get_object_or_404(
-            CaseExternalEntityLink,
-            case_id=case_orcabus_id,
-            external_entity_id=external_entity_orcabus_id,
-        )
-
-        unlink_case_to_external_entity_and_emit(link)
-
-        return Response(status=status.HTTP_204_NO_CONTENT)
-
-    @extend_schema(
-        request=CaseUserCreateSerializer,
-        responses=CaseUserCreateSerializer,
-        description="Links a user to a case.",
-    )
-    @action(detail=False, methods=["post"], url_name="link/user", url_path="link/user")
-    def create_case_user_relationship(self, request, *args, **kwargs):
-        serializer = CaseUserCreateSerializer(data=request.data, many=False)
-
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-        data = serializer.data
-        case_orcabus_id = data.get("case", None)
-        user_orcabus_id = data.get("user", None)
-
-        case = get_object_or_404(Case, pk=case_orcabus_id)
-        user = get_object_or_404(User, pk=user_orcabus_id)
-
-        case_user_link = CaseUserLink.objects.create(
-            case=case, user=user, description=data.get("description", None)
-        )
-        res_data = CaseUserCreateSerializer(case_user_link).data
-
-        return Response(res_data)
-
-    @extend_schema(responses={204: None}, description="Unlinks a user from a case.")
-    @action(
-        detail=True,
-        methods=["delete"],
-        url_name="remove_case_user_relationship",
-        url_path="user/(?P<user_orcabus_id>[^/]+)",
-    )
-    def unlink_case_user(self, request, *args, **kwargs):
-        case_orcabus_id = kwargs.get("pk", None)
-        user_orcabus_id = kwargs.get("user_orcabus_id", None)
-
-        link = get_object_or_404(
-            CaseUserLink, case_id=case_orcabus_id, user_id=user_orcabus_id
-        )
-        link.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+    @extend_schema(responses=CaseHistorySerializer(many=True), description="Retrieve the history of this model")
+    @action(detail=True, methods=['get'], url_name='history', url_path='history')
+    def retrieve_history(self, request, *args, **kwargs):
+        return super().retrieve_history(CaseHistorySerializer)
 
     @extend_schema(
         request=None,

@@ -19,7 +19,7 @@ from django.db.models import (
     OneToOneRel,
     QuerySet,
 )
-
+from simple_history.models import HistoricalRecords
 from rest_framework.settings import api_settings
 
 from app.pagination import PaginationConstant
@@ -36,8 +36,8 @@ class BaseManager(models.Manager):
     @staticmethod
     def reduce_multi_values_qor(key: str, values: List[str]):
         if not isinstance(
-            values,
-            list,
+                values,
+                list,
         ):
             values = [values]
         return reduce(
@@ -106,18 +106,34 @@ class BaseModel(models.Model):
         base_fields = set()
         for f in cls._meta.get_fields():
             if isinstance(
-                f,
-                (
-                    ForeignKey,
-                    ForeignObject,
-                    OneToOneField,
-                    ManyToManyField,
-                    ForeignObjectRel,
-                    ManyToOneRel,
-                    ManyToManyRel,
-                    OneToOneRel,
-                ),
+                    f,
+                    (
+                            ForeignKey,
+                            ForeignObject,
+                            OneToOneField,
+                            ManyToManyField,
+                            ForeignObjectRel,
+                            ManyToOneRel,
+                            ManyToManyRel,
+                            OneToOneRel,
+                    ),
             ):
                 continue
             base_fields.add(f.name)
         return list(base_fields)
+
+
+class BaseHistoricalRecords(HistoricalRecords):
+    """
+    This should alter user_id tracking to models.CharField instead of user model
+    """
+
+    def _history_user_setter(self, historical_instance, user_id):
+        historical_instance.history_user_id = user_id
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(
+            history_user_id_field=models.CharField(null=True, blank=True),
+            history_user_setter=self._history_user_setter,
+            *args, **kwargs
+        )
