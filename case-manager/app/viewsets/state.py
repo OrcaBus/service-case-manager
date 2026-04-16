@@ -1,10 +1,12 @@
+from rest_framework.mixins import UpdateModelMixin, CreateModelMixin
+
 from app.models import State
 from app.serializers import StateDetailSerializer
 
 from .base import BaseViewSet
 
 
-class StateViewSet(BaseViewSet):
+class StateViewSet(BaseViewSet, CreateModelMixin, UpdateModelMixin):
     serializer_class = StateDetailSerializer
     search_fields = State.get_base_fields()
     queryset = State.objects.all()

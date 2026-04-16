@@ -63,6 +63,7 @@ class CaseExternalEntityLinkCreateSerializer(ModelSerializer):
 class CaseUserCreateSerializer(ModelSerializer):
     case = CharField(read_only=True)
     email = EmailField()
+    user = CharField(read_only=True)
 
     class Meta:
         model = CaseUserLink

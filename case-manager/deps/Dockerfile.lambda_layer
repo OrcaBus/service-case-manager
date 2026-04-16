@@ -1,0 +1,19 @@
+# Dockerfile to build a Python dependencies layer for AWS Lambda. Installs all required packages and outputs them in a format suitable for use as a Lambda layer.
+FROM public.ecr.aws/lambda/python:3.13
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+WORKDIR /home
+
+COPY case-manager/pyproject.toml case-manager/uv.lock ./
+
+RUN mkdir -p output/python
+
+RUN uv export --frozen --no-dev --no-editable -o requirements.txt \
+    && uv pip install \
+    --no-installer-metadata \
+    --no-compile-bytecode \
+    --python-platform aarch64-manylinux_2_40 \
+    --python 3.13 \
+    --prefix output/python \
+    -r requirements.txt

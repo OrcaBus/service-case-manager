@@ -10,27 +10,26 @@ class CaseStatus(models.TextChoices):
     SAMPLE_RECEIVED = "sample_received", "Sample Received"
 
     # Library preparation
-    LIBRARY_PREP_STARTED = "library_prep_started", "Library Preparation Started"
-    LIBRARY_QC_FAILED = "library_qc_failed", "Library QC Failed"
-    LIBRARY_QC_REQUEUE = "library_qc_requeue", "Library QC Re-queued"
+    LIBRARY_PARTIALLY_FAILED = "library_partially_failed", "Library Partially Failed"
 
     # Sequencing
     SEQUENCING_STARTED = "sequencing_started", "Sequencing Started"
-    SEQUENCING_COMPLETE = "sequencing_complete", "Sequencing Complete"
+    SEQUENCING_COMPLETED = "sequencing_completed", "Sequencing Completed"
 
-    # Analysis
-    ANALYSIS_STARTED = "analysis_started", "Analysis Started"
-    ANALYSIS_COMPLETE = "analysis_complete", "Analysis Complete"
+    # Bioinformatics Analysis and Workflows
+    BIOINFORMATICS_STARTED = "bioinformatics_started", "Bioinformatics Started"
+    BIOINFORMATICS_COMPLETED = "bioinformatics_completed", "Bioinformatics Completed"
 
     # Curation
-    READY_FOR_CURATION = "ready_for_curation", "Ready for Curation"
     CURATION_STARTED = "curation_started", "Curation Started"
-    CURATION_COMPLETE = "curation_complete", "Curation Complete"
+    CURATION_COMPLETED = "curation_completed", "Curation Completed"
 
     # Reporting
-    LOCKED_FOR_REPORTING = "locked_for_reporting", "Locked for Reporting"
+    LOCKED = "locked", "Locked"
+    UNLOCKED = "unlocked", "Unlocked"
 
     # Terminal
+    FAILED = "failed", "Failed"
     COMPLETED = "completed", "Completed"
     ARCHIVED = "archived", "Archived"
 

@@ -50,7 +50,7 @@ export class CaseManagerStack extends Stack {
     // despite of multiple lambda all of them will share the same dependencies
     const dependencyLayer = new LayerVersion(this, 'DependenciesLayer', {
       code: Code.fromDockerBuild(__dirname + '/../../', {
-        file: 'case-manager/deps/requirements.Dockerfile',
+        file: 'case-manager/deps/Dockerfile.lambda_layer',
         imagePath: 'home/output',
       }),
       compatibleArchitectures: [Architecture.ARM_64],

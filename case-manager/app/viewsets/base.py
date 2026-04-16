@@ -13,7 +13,7 @@ from .utils import get_email_from_jwt
 logger = logging.getLogger(__name__)
 
 
-class BaseViewSet(ReadOnlyModelViewSet, CreateModelMixin, UpdateModelMixin, ABC):
+class BaseViewSet(ReadOnlyModelViewSet, ABC):
     lookup_value_regex = "[^/]+"  # This is to allow for special characters in the URL
     ordering_fields = "__all__"
     ordering = ["-orcabus_id"]
@@ -22,7 +22,7 @@ class BaseViewSet(ReadOnlyModelViewSet, CreateModelMixin, UpdateModelMixin, ABC)
     http_method_names = ["get", "post", "patch", "delete"]
 
 
-class BaseViewSetWithHistory(BaseViewSet):
+class BaseViewSetWithHistory(BaseViewSet, CreateModelMixin, UpdateModelMixin):
     """The BaseViewSetWithHistory is a base viewset that includes the retrieve_history method and overrides hooks
      to set the _history_user."""
 

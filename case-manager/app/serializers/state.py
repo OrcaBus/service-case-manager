@@ -13,7 +13,6 @@ class StateDetailSerializer(ModelSerializer):
     from .case import CaseSerializer
     from .comment import CommentUserSerializer
 
-    case = CaseSerializer(read_only=True)
     comment = CommentUserSerializer(read_only=True)
 
     class Meta(OrcabusIdSerializerMetaMixin):
