@@ -70,8 +70,11 @@ class BaseViewSetWithHistory(BaseViewSet, CreateModelMixin, UpdateModelMixin):
         """
         The perform_create method is overridden to allow for the _history_user to be set.
         """
+        obj = self.queryset.model(**serializer.validated_data)  # validated_data, not .data
+
         requester_email = get_email_from_jwt(self.request)
         if requester_email:
-            serializer.save(_history_user=requester_email)
-        else:
-            super().perform_create(serializer)
+            obj._history_user = requester_email
+
+        obj.save()
+        serializer.instance = obj
