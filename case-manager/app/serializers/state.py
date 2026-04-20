@@ -7,6 +7,7 @@ class StateSerializer(ModelSerializer):
     class Meta(OrcabusIdSerializerMetaMixin):
         model = State
         fields = "__all__"
+        ordering = ["-timestamp"]
 
 
 class StateDetailSerializer(ModelSerializer):

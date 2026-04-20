@@ -72,14 +72,14 @@ class Case(BaseModel):
     objects = CaseManager()
 
     orcabus_id = OrcaBusIdField(primary_key=True, prefix="cas")
-    title = models.CharField(unique=True, blank=True, null=True)
+    title = models.CharField(unique=True, blank=False, null=False)
     description = models.CharField(blank=True, null=True, help_text="A brief description of the case")
     type = models.CharField(
-        choices=CaseType.choices, blank=False, null=True,
+        choices=CaseType.choices, blank=False, null=False,
         help_text="The type for this case e.g. WGTS, ctTSO",
     )
     study_type = models.CharField(
-        choices=CaseStudyType.choices, blank=False, null=True,
+        choices=CaseStudyType.choices, blank=False, null=False,
         help_text="""Whether this is a "clinical" or "research" case""",
     )
     is_report_required = models.BooleanField(

@@ -37,14 +37,16 @@ class CaseUserLinkSerializer(ModelSerializer):
 
 
 class CaseDetailSerializer(ModelSerializer):
+    from .state import StateSerializer
+
     alias = StringListField(required=False)
     external_entity_set = CaseExternalEntityLinkSerializer(
         source="caseexternalentitylink_set", many=True, read_only=True
     )
-
     user_set = CaseUserLinkSerializer(
         source="caseuserlink_set", many=True, read_only=True
     )
+    state_set = StateSerializer(many=True, read_only=True)
 
     class Meta(OrcabusIdSerializerMetaMixin):
         model = Case

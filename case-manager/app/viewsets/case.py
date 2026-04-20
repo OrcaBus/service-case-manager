@@ -83,7 +83,7 @@ class CaseLinkMixin:
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class CaseViewSet(BaseViewSetWithHistory, DestroyModelMixin, CaseLinkMixin):
+class CaseViewSet(BaseViewSetWithHistory, CaseLinkMixin):
     serializer_class = CaseDetailSerializer
     search_fields = Case.get_base_fields()
     queryset = Case.objects.all()
