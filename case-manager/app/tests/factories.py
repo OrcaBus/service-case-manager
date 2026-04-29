@@ -2,36 +2,40 @@ import factory
 import factory.fuzzy
 from factory.django import DjangoModelFactory
 from app.models import User, State, Comment, ExternalEntity, Case
+from app.models.case import CaseType, CaseStudyType
+from app.models.state import CaseStatus
 
-CASE_TITLES = ["case-001", "case-002", "case-003", "case-004", "case-005"]
 CASE_TITLE_001 = "case-001"
 CASE_TITLE_002 = "case-002"
-USER_NAMES = ["Alice", "Bob", "John", "Eve", "Charlie"]
+CASE_TITLES = ["case-001", "case-002", "case-003", "case-004", "case-005"]
+
 USER_001 = "Alice"
-USER_OO2 = "Bob"
+USER_002 = "Bob"
+USER_NAMES = ["Alice", "Bob", "John", "Eve", "Charlie"]
+
 LIBRARY_001 = {
     "prefix": "lib",
-    "orcabus_id": "01BX5ZZKBKACTAV9WEVGEMM001",
     "service_name": "metadata",
     "alias": "library-001",
+    "type": "library",
 }
 LIBRARY_002 = {
     "prefix": "lib",
-    "orcabus_id": "01BX5ZZKBKACTAV9WEVGEMM002",
     "service_name": "metadata",
     "alias": "library-002",
+    "type": "library",
 }
 INDIVIDUAL_001 = {
     "prefix": "idv",
-    "orcabus_id": "01BX5ZZKBKACTAV9WEVGEMM003",
     "service_name": "metadata",
     "alias": "individual-001",
+    "type": "individual",
 }
 SEQUENCE_RUN_001 = {
     "prefix": "seq",
-    "orcabus_id": "01BX5ZZKBKACTAV9WEVGEMM004",
     "service_name": "sequence",
     "alias": "sequence-run-001",
+    "type": "sequence_run",
 }
 EXTERNAL_ENTITIES = [
     LIBRARY_001,
@@ -47,7 +51,10 @@ class CaseFactory(DjangoModelFactory):
 
     title = factory.Iterator(CASE_TITLES)
     description = "a description of the case"
-    type = factory.fuzzy.FuzzyChoice(["WGTS", "CTTSO"])
+    type = factory.fuzzy.FuzzyChoice(CaseType.values)
+    study_type = factory.fuzzy.FuzzyChoice(CaseStudyType.values)
+    is_report_required = True
+    is_nata_accredited = True
 
 
 class UserFactory(DjangoModelFactory):
@@ -62,7 +69,9 @@ class StateFactory(DjangoModelFactory):
     class Meta:
         model = State
 
-    status = factory.fuzzy.FuzzyChoice(["draft", "pending", "completed", "archived"])
+    status = factory.fuzzy.FuzzyChoice(CaseStatus.values)
+    case = factory.SubFactory(CaseFactory)
+    created_by = factory.SubFactory(UserFactory)
 
 
 class CommentFactory(DjangoModelFactory):
@@ -70,6 +79,8 @@ class CommentFactory(DjangoModelFactory):
         model = Comment
 
     text = "some comment here"
+    case = factory.SubFactory(CaseFactory)
+    created_by = factory.SubFactory(UserFactory)
 
 
 class ExternalEntityFactory(DjangoModelFactory):
@@ -80,6 +91,6 @@ class ExternalEntityFactory(DjangoModelFactory):
     test_data = factory.Iterator(EXTERNAL_ENTITIES)
 
     prefix = factory.LazyAttribute(lambda o: o.test_data["prefix"])
-    orcabus_id = factory.LazyAttribute(lambda o: o.test_data["orcabus_id"])
     service_name = factory.LazyAttribute(lambda o: o.test_data["service_name"])
     alias = factory.LazyAttribute(lambda o: o.test_data["alias"])
+    type = factory.LazyAttribute(lambda o: o.test_data["type"])

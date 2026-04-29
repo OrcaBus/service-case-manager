@@ -1,5 +1,16 @@
-from rest_framework.fields import ListField
-from rest_framework.serializers import ModelSerializer, CharField, EmailField
+from drf_spectacular.utils import extend_schema_field
+from rest_framework.fields import (
+    ListField,
+    SerializerMethodField,
+    DateTimeField,
+    DictField,
+)
+from rest_framework.serializers import (
+    Serializer,
+    ModelSerializer,
+    CharField,
+    EmailField,
+)
 from app.models import Case, CaseExternalEntityLink, CaseUserLink
 from app.serializers.utils import OrcabusIdSerializerMetaMixin
 
@@ -23,7 +34,7 @@ class CaseExternalEntityLinkSerializer(ModelSerializer):
 
     class Meta:
         model = CaseExternalEntityLink
-        fields = ["timestamp", "added_via", "external_entity"]
+        fields = ["timestamp", "external_entity"]
 
 
 class CaseUserLinkSerializer(ModelSerializer):
@@ -38,6 +49,7 @@ class CaseUserLinkSerializer(ModelSerializer):
 
 class CaseDetailSerializer(ModelSerializer):
     from .state import StateSerializer
+    from .comment import CommentSerializer
 
     alias = StringListField(required=False)
     external_entity_set = CaseExternalEntityLinkSerializer(
@@ -46,11 +58,21 @@ class CaseDetailSerializer(ModelSerializer):
     user_set = CaseUserLinkSerializer(
         source="caseuserlink_set", many=True, read_only=True
     )
-    state_set = StateSerializer(many=True, read_only=True)
+    latest_state = SerializerMethodField()
+    comment_set = CommentSerializer(read_only=True, many=True)
 
     class Meta(OrcabusIdSerializerMetaMixin):
         model = Case
         fields = "__all__"
+
+    @extend_schema_field(StateSerializer(allow_null=True))
+    def get_latest_state(self, obj):
+        from .state import StateSerializer
+
+        state = obj.state_set.order_by("-event_at").first()
+        if state:
+            return StateSerializer(state).data
+        return None
 
 
 class CaseExternalEntityLinkCreateSerializer(ModelSerializer):
@@ -64,7 +86,7 @@ class CaseExternalEntityLinkCreateSerializer(ModelSerializer):
 
 class CaseUserCreateSerializer(ModelSerializer):
     case = CharField(read_only=True)
-    email = EmailField()
+    email = EmailField(write_only=True)
     user = CharField(read_only=True)
 
     class Meta:
@@ -78,3 +100,17 @@ class CaseHistorySerializer(CaseSerializer):
         fields = "__all__"
 
     case = CharField(read_only=True)
+
+
+class CaseTimelineSerializer(Serializer):
+    """
+    A unified read-only serializer for case timeline entries.
+    Each entry describes one event, regardless of its source.
+    """
+
+    timestamp = DateTimeField()
+    event_type = CharField()
+    model_type = CharField()
+    actor = CharField(allow_null=True)
+    description = CharField()
+    detail = DictField(allow_null=True)

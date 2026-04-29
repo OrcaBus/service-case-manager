@@ -1,15 +1,11 @@
 import logging
 
-from unittest.mock import patch
-
-from django.core import serializers
+from django.core.exceptions import ValidationError
 from django.test import TestCase
-from .factories import USER_001, CASE_TITLE_001
+from .factories import USER_001, CASE_TITLE_001, CASE_TITLE_002
 from .factories import UserFactory, StateFactory, CaseFactory, ExternalEntityFactory
 from .utils import insert_fixture_1
-from ..models import CaseUserLink
-
-# from .utils import insert_mock_1
+from ..models import CaseUserLink, Comment
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -82,3 +78,80 @@ class ModelTestCase(TestCase):
         self.assertEqual(
             comments.count(), 1, "correct number of comment linked to case"
         )
+
+
+class CommentModelTestCase(TestCase):
+    """
+    python manage.py test app.tests.test_models.CommentModelTestCase
+    """
+
+    def setUp(self):
+        self.case = CaseFactory(title=CASE_TITLE_001)
+        self.user = UserFactory(name=USER_001)
+        self.state = StateFactory(
+            case=self.case, status="request_received", created_by=self.user
+        )
+
+    # --- Valid creation ---
+
+    def test_comment_with_case_only(self):
+        """
+        python manage.py test app.tests.test_models.CommentModelTestCase.test_comment_with_case_only
+        A comment attached only to a case should be valid.
+        """
+        comment = Comment(text="Valid comment", case=self.case, created_by=self.user)
+        comment.full_clean()  # should not raise
+        comment.save()
+        self.assertEqual(Comment.objects.count(), 1)
+
+    def test_comment_with_state_only(self):
+        """
+        python manage.py test app.tests.test_models.CommentModelTestCase.test_comment_with_state_only
+        A comment attached only to a state should be valid.
+        """
+        comment = Comment(text="Valid comment", state=self.state, created_by=self.user)
+        comment.full_clean()  # should not raise
+        comment.save()
+        self.assertEqual(Comment.objects.count(), 1)
+
+    def test_comment_with_case_and_matching_state(self):
+        """
+        python manage.py test app.tests.test_models.CommentModelTestCase.test_comment_with_case_and_matching_state
+        A comment with both case and state pointing to the same case should be valid.
+        """
+        comment = Comment(
+            text="Valid comment", case=self.case, state=self.state, created_by=self.user
+        )
+        comment.full_clean()  # should not raise
+        comment.save()
+        self.assertEqual(Comment.objects.count(), 1)
+
+    # --- Invalid creation ---
+
+    def test_comment_without_case_or_state_raises(self):
+        """
+        python manage.py test app.tests.test_models.CommentModelTestCase.test_comment_without_case_or_state_raises
+        A comment with neither case nor state should raise ValidationError.
+        """
+        comment = Comment(text="Orphan comment", created_by=self.user)
+        with self.assertRaises(ValidationError):
+            comment.full_clean()
+
+    def test_comment_with_mismatched_case_and_state_raises(self):
+        """
+        python manage.py test app.tests.test_models.CommentModelTestCase.test_comment_with_mismatched_case_and_state_raises
+        A comment where state.case != comment.case should raise ValidationError.
+        """
+        other_case = CaseFactory(title=CASE_TITLE_002)
+        state_on_other_case = StateFactory(
+            case=other_case, status="request_received", created_by=self.user
+        )
+
+        comment = Comment(
+            text="Mismatched comment",
+            case=self.case,  # case A
+            state=state_on_other_case,  # state belongs to case B
+            created_by=self.user,
+        )
+        with self.assertRaises(ValidationError):
+            comment.full_clean()

@@ -36,7 +36,7 @@ class CaseUserLink(models.Model):
         null=True,
         help_text="Some description of the user in the case (e.g. 'Case Owner', 'Case Manager', etc.)",
     )
-    timestamp = models.DateTimeField(auto_now=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         unique_together = ["case", "user"]
@@ -57,12 +57,7 @@ class CaseExternalEntityLink(models.Model):
         db_column="external_entity_orcabus_id",
     )
 
-    added_via = models.CharField(
-        blank=True,
-        null=True,
-        help_text="The external entity id that was added to the case",
-    )
-    timestamp = models.DateTimeField(auto_now=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         unique_together = ["case", "external_entity"]
@@ -73,13 +68,19 @@ class Case(BaseModel):
 
     orcabus_id = OrcaBusIdField(primary_key=True, prefix="cas")
     title = models.CharField(unique=True, blank=False, null=False)
-    description = models.CharField(blank=True, null=True, help_text="A brief description of the case")
+    description = models.CharField(
+        blank=True, null=True, help_text="A brief description of the case"
+    )
     type = models.CharField(
-        choices=CaseType.choices, blank=False, null=False,
+        choices=CaseType.choices,
+        blank=False,
+        null=False,
         help_text="The type for this case e.g. WGTS, ctTSO",
     )
     study_type = models.CharField(
-        choices=CaseStudyType.choices, blank=False, null=False,
+        choices=CaseStudyType.choices,
+        blank=False,
+        null=False,
         help_text="""Whether this is a "clinical" or "research" case""",
     )
     is_report_required = models.BooleanField(
@@ -90,14 +91,15 @@ class Case(BaseModel):
         default=True,
         help_text="Whether a case is a NATA accredited case",
     )
-    trello_url = models.URLField(blank=True, null=True, help_text="The URL to the Trello board")
+    trello_url = models.URLField(
+        blank=True, null=True, help_text="The URL to the Trello board"
+    )
     alias = models.JSONField(
         blank=True,
         null=True,
         default=list,
         help_text="A list of aliases for this case, typically populated with external IDs to make searching easier.",
     )
-    last_modified = models.DateTimeField(auto_now=True)
 
     user_set = models.ManyToManyField(
         "User", through=CaseUserLink, related_name="case_set", blank=True

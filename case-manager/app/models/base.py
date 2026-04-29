@@ -36,8 +36,8 @@ class BaseManager(models.Manager):
     @staticmethod
     def reduce_multi_values_qor(key: str, values: List[str]):
         if not isinstance(
-                values,
-                list,
+            values,
+            list,
         ):
             values = [values]
         return reduce(
@@ -106,17 +106,17 @@ class BaseModel(models.Model):
         base_fields = set()
         for f in cls._meta.get_fields():
             if isinstance(
-                    f,
-                    (
-                            ForeignKey,
-                            ForeignObject,
-                            OneToOneField,
-                            ManyToManyField,
-                            ForeignObjectRel,
-                            ManyToOneRel,
-                            ManyToManyRel,
-                            OneToOneRel,
-                    ),
+                f,
+                (
+                    ForeignKey,
+                    ForeignObject,
+                    OneToOneField,
+                    ManyToManyField,
+                    ForeignObjectRel,
+                    ManyToOneRel,
+                    ManyToManyRel,
+                    OneToOneRel,
+                ),
             ):
                 continue
             base_fields.add(f.name)
@@ -135,5 +135,6 @@ class BaseHistoricalRecords(HistoricalRecords):
         super().__init__(
             history_user_id_field=models.CharField(null=True, blank=True),
             history_user_setter=self._history_user_setter,
-            *args, **kwargs
+            *args,
+            **kwargs,
         )

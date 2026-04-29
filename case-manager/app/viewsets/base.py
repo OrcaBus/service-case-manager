@@ -24,7 +24,7 @@ class BaseViewSet(ReadOnlyModelViewSet, ABC):
 
 class BaseViewSetWithHistory(BaseViewSet, CreateModelMixin, UpdateModelMixin):
     """The BaseViewSetWithHistory is a base viewset that includes the retrieve_history method and overrides hooks
-     to set the _history_user."""
+    to set the _history_user."""
 
     def retrieve_history(self, history_serializer):
         """
@@ -44,7 +44,7 @@ class BaseViewSetWithHistory(BaseViewSet, CreateModelMixin, UpdateModelMixin):
         """
 
         # Grab the PK object from the queryset
-        pk = self.kwargs.get('pk')
+        pk = self.kwargs.get("pk")
 
         obj = get_object_or_404(self.queryset, pk=pk)
 
@@ -70,7 +70,9 @@ class BaseViewSetWithHistory(BaseViewSet, CreateModelMixin, UpdateModelMixin):
         """
         The perform_create method is overridden to allow for the _history_user to be set.
         """
-        obj = self.queryset.model(**serializer.validated_data)  # validated_data, not .data
+        obj = self.queryset.model(
+            **serializer.validated_data
+        )  # validated_data, not .data
 
         requester_email = get_email_from_jwt(self.request)
         if requester_email:

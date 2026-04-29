@@ -63,5 +63,7 @@ class OrcaBusIdField(UlidField):
         return self.get_prep_value(value)
 
     def get_prep_value(self, value):
+        if value is None:
+            return None
         # We just want the last 26 characters which is the ULID (ignoring any prefix) when dealing with the database
         return value[-26:]

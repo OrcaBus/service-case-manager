@@ -6,17 +6,20 @@ from rest_framework.response import Response
 from rest_framework.mixins import DestroyModelMixin
 from django.shortcuts import get_object_or_404
 from rest_framework import status
-from app.models import Case, CaseExternalEntityLink, ExternalEntity, User, CaseUserLink
+from app.models import Case, CaseExternalEntityLink, State, User, CaseUserLink
 from app.serializers import (
     CaseDetailSerializer,
     CaseExternalEntityLinkCreateSerializer,
-    CaseUserCreateSerializer, CaseSerializer,
+    CaseUserCreateSerializer,
+    CaseSerializer,
+    StateSerializer,
 )
 from .base import BaseViewSetWithHistory
-from ..serializers.case import CaseHistorySerializer
+from ..serializers.case import CaseHistorySerializer, CaseTimelineSerializer
 from ..service.case import (
     link_case_to_external_entity_and_emit,
     unlink_case_to_external_entity_and_emit,
+    get_case_history,
 )
 from ..service.external_entity import get_or_create_external_entity
 
@@ -36,14 +39,16 @@ class CaseLinkMixin:
         external_entity = get_or_create_external_entity(
             serializer.validated_data["external_entity"]
         )
-        link = link_case_to_external_entity_and_emit(
-            case, external_entity, added_via=serializer.validated_data.get("added_via")
-        )
+        link = link_case_to_external_entity_and_emit(case, external_entity)
         return Response(CaseExternalEntityLinkCreateSerializer(link).data)
 
-    @extend_schema(responses={204: None}, description="Removes a link between an external entity and a case.")
+    @extend_schema(
+        responses={204: None},
+        description="Removes a link between an external entity and a case.",
+    )
     @action(
-        detail=True, methods=["delete"],
+        detail=True,
+        methods=["delete"],
         url_path="external-entity/(?P<external_entity_orcabus_id>[^/]+)",
     )
     def unlink_external_entity(self, request, pk=None, external_entity_orcabus_id=None):
@@ -67,14 +72,16 @@ class CaseLinkMixin:
         case = get_object_or_404(Case, pk=pk)
         user, _ = User.objects.get_or_create(email=serializer.validated_data["email"])
         link = CaseUserLink.objects.create(
-            case=case, user=user,
+            case=case,
+            user=user,
             description=serializer.validated_data.get("description"),
         )
         return Response(CaseUserCreateSerializer(link).data)
 
     @extend_schema(responses={204: None}, description="Unlinks a user from a case.")
     @action(
-        detail=True, methods=["delete"],
+        detail=True,
+        methods=["delete"],
         url_path="user/(?P<user_orcabus_id>[^/]+)",
     )
     def unlink_user(self, request, pk=None, user_orcabus_id=None):
@@ -91,30 +98,42 @@ class CaseViewSet(BaseViewSetWithHistory, CaseLinkMixin):
     def get_queryset(self):
         qs = self.queryset
         query_params = self.request.query_params.copy()
-
         return Case.objects.get_by_keyword(qs, **query_params)
 
-    @extend_schema(responses=CaseHistorySerializer(many=True), description="Retrieve the history of this model")
-    @action(detail=True, methods=['get'], url_name='history', url_path='history')
+    @extend_schema(
+        responses=CaseHistorySerializer(many=True),
+        description="Retrieve the history of this model",
+    )
+    @action(detail=True, methods=["get"], url_name="history", url_path="history")
     def retrieve_history(self, request, *args, **kwargs):
         return super().retrieve_history(CaseHistorySerializer)
 
     @extend_schema(
-        request=None,
-        responses={202: {"description": "Case generation process started"}},
-        description="Automatically generate new cases based on existing library and runs.",
+        responses=StateSerializer(many=True),
+        description="Retrieve all the states for a particular case",
     )
-    @action(detail=False, methods=["post"], url_name="generate", url_path="generate")
-    def generate(self, request):
-        lambda_arn = os.environ["CASE_FINDER_LAMBDA_ARN"]
-        client = boto3.client("lambda", region_name="ap-southeast-2")
+    @action(detail=True, methods=["get"], url_name="states", url_path="states")
+    def retrieve_states(self, request, *args, **kwargs):
+        pk = self.kwargs.get("pk")
 
-        client.invoke(
-            FunctionName=lambda_arn,
-            InvocationType="Event",
-        )
+        case_obj = get_object_or_404(self.queryset, pk=pk)
+        state_obj_arr = State.objects.filter(case=case_obj).order_by("-event_at").all()
 
-        return Response(
-            {"message": "Case generation process has been started."},
-            status=status.HTTP_202_ACCEPTED,
-        )
+        page = self.paginate_queryset(state_obj_arr)
+        serializer = StateSerializer(page, many=True)
+
+        return self.get_paginated_response(serializer.data)
+
+    @extend_schema(
+        responses=CaseTimelineSerializer(many=True),
+        description="Retrieve the audit tracking to the case",
+    )
+    @action(detail=True, methods=["get"], url_name="timeline", url_path="timeline")
+    def retrieve_timeline(self, request, *args, **kwargs):
+        pk = self.kwargs.get("pk")
+        case_obj = get_object_or_404(self.queryset, pk=pk)
+        entries = get_case_history(case_obj)
+
+        page = self.paginate_queryset(entries)
+        serializer = CaseTimelineSerializer(page, many=True)
+        return self.get_paginated_response(serializer.data)
