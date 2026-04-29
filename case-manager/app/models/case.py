@@ -1,7 +1,31 @@
+from django.core.exceptions import ValidationError
+from django.core.validators import URLValidator
 from django.db import models
 
 from app.fields import OrcaBusIdField
 from app.models.base import BaseModel, BaseManager, BaseHistoricalRecords
+
+
+def validate_urls_dict(value):
+    """Validates that the value is a dict of {label: valid_url} pairs."""
+    if value is None:
+        return
+    if not isinstance(value, dict):
+        raise ValidationError(
+            "urls must be a JSON object (dict), e.g. {'trello': 'https://...'}"
+        )
+    url_validator = URLValidator()
+    errors = {}
+    for key, url in value.items():
+        if not isinstance(key, str) or not key.strip():
+            errors[key] = "Each key must be a non-empty string."
+            continue
+        try:
+            url_validator(url)
+        except ValidationError:
+            errors[key] = f"'{url}' is not a valid URL."
+    if errors:
+        raise ValidationError(errors)
 
 
 class CaseStudyType(models.TextChoices):
@@ -67,7 +91,12 @@ class Case(BaseModel):
     objects = CaseManager()
 
     orcabus_id = OrcaBusIdField(primary_key=True, prefix="cas")
-    title = models.CharField(unique=True, blank=False, null=False)
+    request_form_id = models.CharField(
+        unique=True,
+        blank=False,
+        null=False,
+        help_text="The unique ID from the external request form associated with this case.",
+    )
     description = models.CharField(
         blank=True, null=True, help_text="A brief description of the case"
     )
@@ -91,8 +120,12 @@ class Case(BaseModel):
         default=True,
         help_text="Whether a case is a NATA accredited case",
     )
-    trello_url = models.URLField(
-        blank=True, null=True, help_text="The URL to the Trello board"
+    links = models.JSONField(
+        blank=True,
+        null=True,
+        default=dict,
+        validators=[validate_urls_dict],
+        help_text='A dict of named links, e.g. {"trello": "https://...", "drive": "https://..."}',
     )
     alias = models.JSONField(
         blank=True,
