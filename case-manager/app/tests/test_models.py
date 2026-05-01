@@ -2,7 +2,7 @@ import logging
 
 from django.core.exceptions import ValidationError
 from django.test import TestCase
-from .factories import USER_001, CASE_TITLE_001, CASE_TITLE_002
+from .factories import USER_001, CASE_REQUEST_FORM_ID_001, CASE_REQUEST_FORM_ID_002
 from .factories import UserFactory, StateFactory, CaseFactory, ExternalEntityFactory
 from .utils import insert_fixture_1
 from ..models import CaseUserLink, Comment
@@ -35,7 +35,7 @@ class ModelTestCase(TestCase):
         logger.info("Test get on simple models")
 
         case = insert_fixture_1()
-        self.assertEqual(case.title, CASE_TITLE_001, "correct user title assigned")
+        self.assertEqual(case.request_form_id, CASE_REQUEST_FORM_ID_001, "correct request form id assigned")
 
         # user
         self.assertEqual(
@@ -86,7 +86,7 @@ class CommentModelTestCase(TestCase):
     """
 
     def setUp(self):
-        self.case = CaseFactory(title=CASE_TITLE_001)
+        self.case = CaseFactory(request_form_id=CASE_REQUEST_FORM_ID_001)
         self.user = UserFactory(name=USER_001)
         self.state = StateFactory(
             case=self.case, status="request_received", created_by=self.user
@@ -142,7 +142,7 @@ class CommentModelTestCase(TestCase):
         python manage.py test app.tests.test_models.CommentModelTestCase.test_comment_with_mismatched_case_and_state_raises
         A comment where state.case != comment.case should raise ValidationError.
         """
-        other_case = CaseFactory(title=CASE_TITLE_002)
+        other_case = CaseFactory(request_form_id=CASE_REQUEST_FORM_ID_002)
         state_on_other_case = StateFactory(
             case=other_case, status="request_received", created_by=self.user
         )

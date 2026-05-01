@@ -5,9 +5,9 @@ from app.models import User, State, Comment, ExternalEntity, Case
 from app.models.case import CaseType, CaseStudyType
 from app.models.state import CaseStatus
 
-CASE_TITLE_001 = "case-001"
-CASE_TITLE_002 = "case-002"
-CASE_TITLES = ["case-001", "case-002", "case-003", "case-004", "case-005"]
+CASE_REQUEST_FORM_ID_001 = "case-001"
+CASE_REQUEST_FORM_ID_002 = "case-002"
+CASE_REQUEST_FORM_ID_ARRAY = ["case-001", "case-002", "case-003", "case-004", "case-005"]
 
 USER_001 = "Alice"
 USER_002 = "Bob"
@@ -49,7 +49,7 @@ class CaseFactory(DjangoModelFactory):
     class Meta:
         model = Case
 
-    title = factory.Iterator(CASE_TITLES)
+    request_form_id = factory.Iterator(CASE_REQUEST_FORM_ID_ARRAY)
     description = "a description of the case"
     type = factory.fuzzy.FuzzyChoice(CaseType.values)
     study_type = factory.fuzzy.FuzzyChoice(CaseStudyType.values)

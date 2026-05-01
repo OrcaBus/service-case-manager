@@ -1,7 +1,7 @@
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.management import call_command
 
-from app.models import User, State, Comment, ExternalEntity, Case, CaseUserLink
+from app.models import User, State, Comment, ExternalEntity, Case, CaseUserLink, CaseExternalEntityLink
 from app.tests.factories import (
     UserFactory,
     StateFactory,
@@ -11,7 +11,7 @@ from app.tests.factories import (
     LIBRARY_001,
     LIBRARY_002,
     USER_001,
-    CASE_TITLE_001,
+    CASE_REQUEST_FORM_ID_001,
 )
 
 
@@ -27,7 +27,7 @@ def insert_fixture_1(clean_before_insert=True):
     if clean_before_insert:
         clear_all_data()
 
-    case = CaseFactory(title=CASE_TITLE_001)
+    case = CaseFactory(request_form_id=CASE_REQUEST_FORM_ID_001)
     user = UserFactory(name=USER_001)
 
     state_received = StateFactory(case=case, status="request_received", created_by=user)
@@ -38,13 +38,13 @@ def insert_fixture_1(clean_before_insert=True):
     comment = CommentFactory(case=case, created_by=user)
 
     lib_1 = ExternalEntityFactory(**LIBRARY_001)
-    case.external_entity_set.add(lib_1)
+    CaseExternalEntityLink.objects.create(case=case, external_entity=lib_1)
 
     lib_2 = ExternalEntityFactory(**LIBRARY_002)
-    case.external_entity_set.add(lib_2)
+    CaseExternalEntityLink.objects.create(case=case, external_entity=lib_2)
 
     # Linking
-    case.user_set.add(user, through_defaults={"description": "lead"})
+    CaseUserLink.objects.create(case=case, user=user, description="lead")
 
     return case
 

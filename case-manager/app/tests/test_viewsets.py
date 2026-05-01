@@ -3,6 +3,7 @@ import logging
 
 from django.test import TestCase
 
+from app.models import CaseExternalEntityLink, CaseUserLink
 from app.tests.factories import (
     UserFactory,
     USER_002,
@@ -121,7 +122,7 @@ class ViewSetTestCase(TestCase):
         case = insert_fixture_1()
         user_2 = UserFactory(name=USER_002)
         # Link user
-        case.user_set.add(user_2, through_defaults={"description": "lead"})
+        CaseUserLink.objects.create(case=case, user=user_2, description="lead")
         self.assertEqual(case.user_set.count(), 2)
 
         response = self.client.delete(
@@ -139,7 +140,7 @@ class ViewSetTestCase(TestCase):
         case = insert_fixture_1()
         idv_1 = ExternalEntityFactory(**INDIVIDUAL_001)
         # Link external entity
-        case.external_entity_set.add(idv_1)
+        CaseExternalEntityLink.objects.create(case=case, external_entity=idv_1)
         self.assertEqual(case.external_entity_set.count(), 3)
 
         response = self.client.delete(
