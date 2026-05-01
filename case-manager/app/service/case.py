@@ -4,28 +4,30 @@ from django.db import transaction
 from django.db.models.functions import Coalesce
 
 from app.aws.event_bridge import emit_event
-from app.models import Case, CaseExternalEntityLink, ExternalEntity, State, Comment
+from app.models import Case, CaseExternalEntityLink, ExternalEntity, State, Comment, CaseUserLink
 from app.schemas.events.case_srelationship_state_change_model import (
     CaseRelationshipStateChange,
     Action,
     DetailType,
 )
-from app.serializers import CaseSerializer
-from app.serializers import ExternalEntitySerializer
-from app.serializers.case import CaseHistorySerializer
+from app.serializers.case import CaseHistorySerializer, CaseUserLinkSerializer, CaseExternalEntityLinkSerializer
 
 
 @transaction.atomic
 def link_case_to_external_entity_and_emit(
-    case: Case, external_entity: ExternalEntity, added_via: str = "manual"
+        case: Case, external_entity: ExternalEntity, history_user: str | None
 ) -> CaseExternalEntityLink:
     """
     Save the case-external entity relationship and emit an event to the Event Bridge.
     """
 
-    case_entity_link = CaseExternalEntityLink.objects.create(
+    case_entity_link = CaseExternalEntityLink(
         case=case, external_entity=external_entity
     )
+    if history_user:
+        case_entity_link._history_user = history_user
+    case_entity_link.save()
+
     # TODO: Fix event schema
     # case_data = CaseSerializer(case_entity_link.case).data
     # external_entity_data = ExternalEntitySerializer(
@@ -50,12 +52,14 @@ def link_case_to_external_entity_and_emit(
 
 @transaction.atomic
 def unlink_case_to_external_entity_and_emit(
-    case_external_entity: CaseExternalEntityLink,
+        case_external_entity: CaseExternalEntityLink,
+        history_user: str | None
 ) -> CaseExternalEntityLink:
     """
     Remove the case-external entity relationship and emit an event to the Event Bridge.
     """
-    # Delete and send events
+    if history_user:
+        case_external_entity._history_user = history_user
     case_external_entity.delete()
 
     # TODO: Fix event schema
@@ -79,7 +83,7 @@ def unlink_case_to_external_entity_and_emit(
 
 
 EventAction = Literal["created", "updated", "deleted", "archived"]
-ModelType = Literal["case", "state", "comment"]
+ModelType = Literal["case", "state", "comment", "case_user_link", "case_external_entity_link"]
 
 
 class CaseHistoryEntry(TypedDict):
@@ -94,11 +98,11 @@ class CaseHistoryEntry(TypedDict):
     actor: str | None  # user who triggered it (email); None if system
     description: str  # human-readable one-liner summary
     detail: (
-        dict[str, Any] | None
-    )  # before/after payload for updates, snapshot for create/delete
+            dict[str, Any] | None
+    )
 
 
-def get_case_history(case: Case) -> list:
+def get_case_activity(case: Case) -> list:
     """
     Will generate a view of changes happening on a case.
 
@@ -106,8 +110,19 @@ def get_case_history(case: Case) -> list:
     """
     entries: list[CaseHistoryEntry] = []
 
-    # --- Case field changes (from simple_history) ---
+    # --- Case field changes ---
     for h in case.history.all():
+        if h.history_type == "~":
+            old_record = h.prev_record
+            delta = h.diff_against(old_record)
+            description = "; ".join(
+                f"'{change.field}' changed from '{change.old}' to '{change.new}'"
+                for change in delta.changes
+            ) or "Case updated"
+        elif h.history_type == "+":
+            description = "Case created"
+        else:
+            description = "Case deleted"
         entries.append(
             {
                 "timestamp": h.history_date.isoformat(),
@@ -118,17 +133,54 @@ def get_case_history(case: Case) -> list:
                 ),
                 "model_type": "case",
                 "actor": str(h.history_user_id) if h.history_user_id else None,
-                "description": f"Case {'created' if h.history_type == '+' else 'deleted' if h.history_type == '-' else 'updated'}",
+                "description": description,
                 "detail": CaseHistorySerializer(h).data,
+            }
+        )
+
+    # --- Case User Link changes ---
+    for h in CaseUserLink.history.filter(case=case).select_related("user").all():
+        event_type: EventAction = (
+            "created"
+            if h.history_type == "+"
+            else "deleted" if h.history_type == "-" else "updated"
+        )
+
+        entries.append(
+            {
+                "timestamp": h.history_date.isoformat(),
+                "event_type": event_type,
+                "model_type": "case_user_link",
+                "actor": str(h.history_user_id) if h.history_user_id else None,
+                "description": f""""{h.user.email}" {event_type}""",
+                "detail": CaseUserLinkSerializer(h).data,
+            }
+        )
+
+    # --- Case User Link changes ---
+    for h in CaseExternalEntityLink.history.filter(case=case).select_related("external_entity").all():
+        event_type: EventAction = (
+            "created"
+            if h.history_type == "+"
+            else "deleted" if h.history_type == "-" else "updated"
+        )
+        entries.append(
+            {
+                "timestamp": h.history_date.isoformat(),
+                "event_type": event_type,
+                "model_type": "case_external_entity_link",
+                "actor": str(h.history_user_id) if h.history_user_id else None,
+                "description": f""""{h.external_entity.alias}" {event_type}""",
+                "detail": CaseExternalEntityLinkSerializer(h).data,
             }
         )
 
     # --- States (append-only) ---
     for state in (
-        State.objects.filter(case=case)
-        .select_related("created_by", "archived_by")
-        .annotate(last_changed=Coalesce("archived_at", "created_at"))
-        .order_by("last_changed")
+            State.objects.filter(case=case)
+                    .select_related("created_by", "archived_by")
+                    .annotate(last_changed=Coalesce("archived_at", "created_at"))
+                    .order_by("last_changed")
     ):
         entries.append(
             {
@@ -160,10 +212,10 @@ def get_case_history(case: Case) -> list:
 
     # --- Comments (append-only) ---
     for comment in (
-        Comment.objects.filter(case=case)
-        .select_related("created_by", "archived_by")
-        .annotate(last_changed=Coalesce("archived_at", "created_at"))
-        .order_by("last_changed")
+            Comment.objects.filter(case=case)
+                    .select_related("created_by", "archived_by")
+                    .annotate(last_changed=Coalesce("archived_at", "created_at"))
+                    .order_by("last_changed")
     ):
         entries.append(
             {

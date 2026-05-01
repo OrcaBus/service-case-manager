@@ -2,6 +2,9 @@ from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
 from django.db import models
 
+from django.db.models.signals import m2m_changed
+from django.dispatch import receiver
+
 from app.fields import OrcaBusIdField
 from app.models.base import BaseModel, BaseManager, BaseHistoricalRecords
 
@@ -62,6 +65,9 @@ class CaseUserLink(models.Model):
     )
     timestamp = models.DateTimeField(auto_now_add=True)
 
+    # history
+    history = BaseHistoricalRecords()
+
     class Meta:
         unique_together = ["case", "user"]
 
@@ -82,6 +88,9 @@ class CaseExternalEntityLink(models.Model):
     )
 
     timestamp = models.DateTimeField(auto_now_add=True)
+
+    # history
+    history = BaseHistoricalRecords()
 
     class Meta:
         unique_together = ["case", "external_entity"]
@@ -145,4 +154,26 @@ class Case(BaseModel):
     )
 
     # history
-    history = BaseHistoricalRecords(m2m_fields=[user_set, external_entity_set])
+    history = BaseHistoricalRecords()
+
+
+@receiver(m2m_changed, sender=CaseUserLink)
+def prevent_caseuserlink_m2m_add(sender, action, **kwargs):
+    if action in ("pre_add", "pre_remove"):
+        raise RuntimeError(
+            "Do not use case.user_set.add() or case.user_set.remove(). "
+            "Use CaseUserLink.objects.create(case=case, user=user) to add, "
+            "and link.delete() to remove. "
+            "Reason: .add()/.remove() bypass save() and history will NOT be recorded."
+        )
+
+
+@receiver(m2m_changed, sender=CaseExternalEntityLink)
+def prevent_caseexternalentitylink_m2m_add(sender, action, **kwargs):
+    if action in ("pre_add", "pre_remove"):
+        raise RuntimeError(
+            "Do not use case.external_entity_set.add() or case.external_entity_set.remove(). "
+            "Use CaseExternalEntityLink.objects.create(case=case, external_entity=...) to add, "
+            "and link.delete() to remove. "
+            "Reason: .add()/.remove() bypass save() and history will NOT be recorded."
+        )

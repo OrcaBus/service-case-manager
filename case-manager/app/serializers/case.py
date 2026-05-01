@@ -101,6 +101,9 @@ class CaseHistorySerializer(CaseSerializer):
 
     case = CharField(read_only=True)
 
+    user_set = CaseUserCreateSerializer(read_only=True, many=True)
+    comment_set = CaseExternalEntityLinkCreateSerializer(read_only=True, many=True)
+
 
 class CaseTimelineSerializer(Serializer):
     """

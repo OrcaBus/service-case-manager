@@ -15,11 +15,12 @@ from app.serializers import (
     StateSerializer,
 )
 from .base import BaseViewSetWithHistory
+from .utils import get_email_from_jwt
 from ..serializers.case import CaseHistorySerializer, CaseTimelineSerializer
 from ..service.case import (
     link_case_to_external_entity_and_emit,
     unlink_case_to_external_entity_and_emit,
-    get_case_history,
+    get_case_activity,
 )
 from ..service.external_entity import get_or_create_external_entity
 
@@ -39,7 +40,7 @@ class CaseLinkMixin:
         external_entity = get_or_create_external_entity(
             serializer.validated_data["external_entity"]
         )
-        link = link_case_to_external_entity_and_emit(case, external_entity)
+        link = link_case_to_external_entity_and_emit(case, external_entity, get_email_from_jwt(request))
         return Response(CaseExternalEntityLinkCreateSerializer(link).data)
 
     @extend_schema(
@@ -57,7 +58,7 @@ class CaseLinkMixin:
             case_id=pk,
             external_entity_id=external_entity_orcabus_id,
         )
-        unlink_case_to_external_entity_and_emit(link)
+        unlink_case_to_external_entity_and_emit(link, get_email_from_jwt(request))
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @extend_schema(
@@ -71,11 +72,15 @@ class CaseLinkMixin:
         serializer.is_valid(raise_exception=True)
         case = get_object_or_404(Case, pk=pk)
         user, _ = User.objects.get_or_create(email=serializer.validated_data["email"])
-        link = CaseUserLink.objects.create(
+        link = CaseUserLink(
             case=case,
             user=user,
             description=serializer.validated_data.get("description"),
         )
+        requester_email = get_email_from_jwt(request)
+        if requester_email:
+            link._history_user = requester_email
+        link.save()
         return Response(CaseUserCreateSerializer(link).data)
 
     @extend_schema(responses={204: None}, description="Unlinks a user from a case.")
@@ -86,6 +91,9 @@ class CaseLinkMixin:
     )
     def unlink_user(self, request, pk=None, user_orcabus_id=None):
         link = get_object_or_404(CaseUserLink, case_id=pk, user_id=user_orcabus_id)
+        requester_email = get_email_from_jwt(request)
+        if requester_email:
+            link._history_user = requester_email
         link.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -99,14 +107,6 @@ class CaseViewSet(BaseViewSetWithHistory, CaseLinkMixin):
         qs = self.queryset
         query_params = self.request.query_params.copy()
         return Case.objects.get_by_keyword(qs, **query_params)
-
-    @extend_schema(
-        responses=CaseHistorySerializer(many=True),
-        description="Retrieve the history of this model",
-    )
-    @action(detail=True, methods=["get"], url_name="history", url_path="history")
-    def retrieve_history(self, request, *args, **kwargs):
-        return super().retrieve_history(CaseHistorySerializer)
 
     @extend_schema(
         responses=StateSerializer(many=True),
@@ -126,13 +126,14 @@ class CaseViewSet(BaseViewSetWithHistory, CaseLinkMixin):
 
     @extend_schema(
         responses=CaseTimelineSerializer(many=True),
-        description="Retrieve the audit tracking to the case",
+        description="Retrieve the activity for the given case. This includes all changes to the case and its related "
+                    "models, such as states, comments, external entities, and linked users.",
     )
-    @action(detail=True, methods=["get"], url_name="timeline", url_path="timeline")
+    @action(detail=True, methods=["get"], url_name="activity", url_path="activity")
     def retrieve_timeline(self, request, *args, **kwargs):
         pk = self.kwargs.get("pk")
         case_obj = get_object_or_404(self.queryset, pk=pk)
-        entries = get_case_history(case_obj)
+        entries = get_case_activity(case_obj)
 
         page = self.paginate_queryset(entries)
         serializer = CaseTimelineSerializer(page, many=True)
