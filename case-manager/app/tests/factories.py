@@ -7,7 +7,13 @@ from app.models.state import CaseStatus
 
 CASE_REQUEST_FORM_ID_001 = "case-001"
 CASE_REQUEST_FORM_ID_002 = "case-002"
-CASE_REQUEST_FORM_ID_ARRAY = ["case-001", "case-002", "case-003", "case-004", "case-005"]
+CASE_REQUEST_FORM_ID_ARRAY = [
+    "case-001",
+    "case-002",
+    "case-003",
+    "case-004",
+    "case-005",
+]
 
 USER_001 = "Alice"
 USER_002 = "Bob"

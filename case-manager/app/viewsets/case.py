@@ -40,7 +40,9 @@ class CaseLinkMixin:
         external_entity = get_or_create_external_entity(
             serializer.validated_data["external_entity"]
         )
-        link = link_case_to_external_entity_and_emit(case, external_entity, get_email_from_jwt(request))
+        link = link_case_to_external_entity_and_emit(
+            case, external_entity, get_email_from_jwt(request)
+        )
         return Response(CaseExternalEntityLinkCreateSerializer(link).data)
 
     @extend_schema(
@@ -127,7 +129,7 @@ class CaseViewSet(BaseViewSetWithHistory, CaseLinkMixin):
     @extend_schema(
         responses=CaseTimelineSerializer(many=True),
         description="Retrieve the activity for the given case. This includes all changes to the case and its related "
-                    "models, such as states, comments, external entities, and linked users.",
+        "models, such as states, comments, external entities, and linked users.",
     )
     @action(detail=True, methods=["get"], url_name="activity", url_path="activity")
     def retrieve_timeline(self, request, *args, **kwargs):

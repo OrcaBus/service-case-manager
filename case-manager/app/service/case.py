@@ -4,18 +4,29 @@ from django.db import transaction
 from django.db.models.functions import Coalesce
 
 from app.aws.event_bridge import emit_event
-from app.models import Case, CaseExternalEntityLink, ExternalEntity, State, Comment, CaseUserLink
+from app.models import (
+    Case,
+    CaseExternalEntityLink,
+    ExternalEntity,
+    State,
+    Comment,
+    CaseUserLink,
+)
 from app.schemas.events.case_srelationship_state_change_model import (
     CaseRelationshipStateChange,
     Action,
     DetailType,
 )
-from app.serializers.case import CaseHistorySerializer, CaseUserLinkSerializer, CaseExternalEntityLinkSerializer
+from app.serializers.case import (
+    CaseHistorySerializer,
+    CaseUserLinkSerializer,
+    CaseExternalEntityLinkSerializer,
+)
 
 
 @transaction.atomic
 def link_case_to_external_entity_and_emit(
-        case: Case, external_entity: ExternalEntity, history_user: str | None
+    case: Case, external_entity: ExternalEntity, history_user: str | None
 ) -> CaseExternalEntityLink:
     """
     Save the case-external entity relationship and emit an event to the Event Bridge.
@@ -52,8 +63,7 @@ def link_case_to_external_entity_and_emit(
 
 @transaction.atomic
 def unlink_case_to_external_entity_and_emit(
-        case_external_entity: CaseExternalEntityLink,
-        history_user: str | None
+    case_external_entity: CaseExternalEntityLink, history_user: str | None
 ) -> CaseExternalEntityLink:
     """
     Remove the case-external entity relationship and emit an event to the Event Bridge.
@@ -83,7 +93,9 @@ def unlink_case_to_external_entity_and_emit(
 
 
 EventAction = Literal["created", "updated", "deleted", "archived"]
-ModelType = Literal["case", "state", "comment", "case_user_link", "case_external_entity_link"]
+ModelType = Literal[
+    "case", "state", "comment", "case_user_link", "case_external_entity_link"
+]
 
 
 class CaseHistoryEntry(TypedDict):
@@ -97,9 +109,7 @@ class CaseHistoryEntry(TypedDict):
     model_type: ModelType  # which model was affected: case, state, or comment
     actor: str | None  # user who triggered it (email); None if system
     description: str  # human-readable one-liner summary
-    detail: (
-            dict[str, Any] | None
-    )
+    detail: dict[str, Any] | None
 
 
 def get_case_activity(case: Case) -> list:
@@ -115,10 +125,13 @@ def get_case_activity(case: Case) -> list:
         if h.history_type == "~":
             old_record = h.prev_record
             delta = h.diff_against(old_record)
-            description = "; ".join(
-                f"'{change.field}' changed from '{change.old}' to '{change.new}'"
-                for change in delta.changes
-            ) or "Case updated"
+            description = (
+                "; ".join(
+                    f"'{change.field}' changed from '{change.old}' to '{change.new}'"
+                    for change in delta.changes
+                )
+                or "Case updated"
+            )
         elif h.history_type == "+":
             description = "Case created"
         else:
@@ -158,7 +171,11 @@ def get_case_activity(case: Case) -> list:
         )
 
     # --- Case User Link changes ---
-    for h in CaseExternalEntityLink.history.filter(case=case).select_related("external_entity").all():
+    for h in (
+        CaseExternalEntityLink.history.filter(case=case)
+        .select_related("external_entity")
+        .all()
+    ):
         event_type: EventAction = (
             "created"
             if h.history_type == "+"
@@ -177,10 +194,10 @@ def get_case_activity(case: Case) -> list:
 
     # --- States (append-only) ---
     for state in (
-            State.objects.filter(case=case)
-                    .select_related("created_by", "archived_by")
-                    .annotate(last_changed=Coalesce("archived_at", "created_at"))
-                    .order_by("last_changed")
+        State.objects.filter(case=case)
+        .select_related("created_by", "archived_by")
+        .annotate(last_changed=Coalesce("archived_at", "created_at"))
+        .order_by("last_changed")
     ):
         entries.append(
             {
@@ -212,10 +229,10 @@ def get_case_activity(case: Case) -> list:
 
     # --- Comments (append-only) ---
     for comment in (
-            Comment.objects.filter(case=case)
-                    .select_related("created_by", "archived_by")
-                    .annotate(last_changed=Coalesce("archived_at", "created_at"))
-                    .order_by("last_changed")
+        Comment.objects.filter(case=case)
+        .select_related("created_by", "archived_by")
+        .annotate(last_changed=Coalesce("archived_at", "created_at"))
+        .order_by("last_changed")
     ):
         entries.append(
             {

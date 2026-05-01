@@ -1,7 +1,15 @@
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.management import call_command
 
-from app.models import User, State, Comment, ExternalEntity, Case, CaseUserLink, CaseExternalEntityLink
+from app.models import (
+    User,
+    State,
+    Comment,
+    ExternalEntity,
+    Case,
+    CaseUserLink,
+    CaseExternalEntityLink,
+)
 from app.tests.factories import (
     UserFactory,
     StateFactory,

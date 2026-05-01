@@ -35,7 +35,11 @@ class ModelTestCase(TestCase):
         logger.info("Test get on simple models")
 
         case = insert_fixture_1()
-        self.assertEqual(case.request_form_id, CASE_REQUEST_FORM_ID_001, "correct request form id assigned")
+        self.assertEqual(
+            case.request_form_id,
+            CASE_REQUEST_FORM_ID_001,
+            "correct request form id assigned",
+        )
 
         # user
         self.assertEqual(
