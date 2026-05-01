@@ -5,14 +5,15 @@ DB_PORT ?= 5432
 
 # installation
 install:
+	@uv python install
 	@uv sync --group dev
 
 check: lint
 
-lint:
+lint: install
 	@uv run black -t py312 --check . --exclude .venv
 
-lint-fix:
+lint-fix: install
 	@uv run black -t py312 . --exclude .venv
 
 # docker compose shortcut
