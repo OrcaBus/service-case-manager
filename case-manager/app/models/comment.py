@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from django.db import models
 
 from app.fields import OrcaBusIdField
@@ -17,22 +18,13 @@ class Comment(BaseModel):
         null=True,
     )
 
-    timestamp = models.DateTimeField(auto_now=True)
-
     # Relationships
     case = models.ForeignKey(
         "Case",
         on_delete=models.CASCADE,
-        blank=False,
-        null=False,
+        blank=True,
+        null=True,
         db_column="case_orcabus_id",
-    )
-    user = models.ForeignKey(
-        "User",
-        on_delete=models.CASCADE,
-        blank=False,
-        null=False,
-        db_column="user_orcabus_id",
     )
     state = models.ForeignKey(
         "State",
@@ -41,3 +33,45 @@ class Comment(BaseModel):
         null=True,
         db_column="state_orcabus_id",
     )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(
+        "User",
+        on_delete=models.PROTECT,
+        blank=False,
+        null=False,
+        db_column="created_by_user_orcabus_id",
+        related_name="created_comments",
+    )
+
+    is_archived = models.BooleanField(default=False)
+    archived_at = models.DateTimeField(null=True, blank=True)
+    archived_by = models.ForeignKey(
+        "User",
+        on_delete=models.PROTECT,
+        blank=True,
+        null=True,
+        db_column="archived_by_user_orcabus_id",
+        related_name="archived_comments",
+    )
+
+    def clean(self):
+        # self.full_clean()
+        super().clean()
+
+        # Must be attached to at least a case or a state
+        if not self.case and not self.state:
+            raise ValidationError(
+                "A comment must be associated with at least a 'case' or a 'state'."
+            )
+
+        # If both are set, they must refer to the same case
+        if self.case and self.state:
+            if self.state.case != self.case:
+                raise ValidationError(
+                    "comment.case and comment.state.case must refer to the same Case."
+                )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)

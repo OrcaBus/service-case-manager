@@ -1,75 +1,270 @@
+from typing import Literal, Any, List, TypedDict, cast
+
 from django.db import transaction
+from django.db.models.functions import Coalesce
 
 from app.aws.event_bridge import emit_event
-from app.models import Case, CaseExternalEntityLink, ExternalEntity, User, CaseUserLink
+from app.models import (
+    Case,
+    CaseExternalEntityLink,
+    ExternalEntity,
+    State,
+    Comment,
+    CaseUserLink,
+)
 from app.schemas.events.case_srelationship_state_change_model import (
     CaseRelationshipStateChange,
     Action,
     DetailType,
 )
-from app.serializers import CaseSerializer
-from app.serializers import ExternalEntitySerializer
+from app.serializers.case import (
+    CaseHistorySerializer,
+    CaseUserLinkSerializer,
+    CaseExternalEntityLinkSerializer,
+)
 
 
 @transaction.atomic
 def link_case_to_external_entity_and_emit(
-    case: Case, external_entity: ExternalEntity, added_via: str = "manual"
+    case: Case, external_entity: ExternalEntity, history_user: str | None
 ) -> CaseExternalEntityLink:
     """
     Save the case-external entity relationship and emit an event to the Event Bridge.
     """
 
-    case_entity_link = CaseExternalEntityLink.objects.create(
-        case=case, external_entity=external_entity, added_via=added_via
+    case_entity_link = CaseExternalEntityLink(
+        case=case, external_entity=external_entity
     )
+    if history_user:
+        case_entity_link._history_user = history_user
+    case_entity_link.save()
 
-    case_data = CaseSerializer(case_entity_link.case).data
-    external_entity_data = ExternalEntitySerializer(
-        case_entity_link.external_entity
-    ).data
-
-    relationship_change_event = CaseRelationshipStateChange(
-        action=Action.CREATE,
-        refId=str(case_entity_link.id),
-        addedVia=added_via,
-        timestamp=case_entity_link.timestamp.isoformat(),
-        case=case_data,
-        externalEntity=external_entity_data,
-    )
-
-    # emit event to Event Bridge
-    emit_event(
-        detail_type=DetailType.CaseRelationshipStateChange.value,
-        event_detail_model=relationship_change_event,
-    )
+    # TODO: Fix event schema
+    # case_data = CaseSerializer(case_entity_link.case).data
+    # external_entity_data = ExternalEntitySerializer(
+    #     case_entity_link.external_entity
+    # ).data
+    #
+    # relationship_change_event = CaseRelationshipStateChange(
+    #     action=Action.CREATE,
+    #     refId=str(case_entity_link.id),
+    #     timestamp=case_entity_link.timestamp.isoformat(),
+    #     case=case_data,
+    #     externalEntity=external_entity_data,
+    # )
+    #
+    # # emit event to Event Bridge
+    # emit_event(
+    #     detail_type=DetailType.CaseRelationshipStateChange.value,
+    #     event_detail_model=relationship_change_event,
+    # )
     return case_entity_link
 
 
 @transaction.atomic
 def unlink_case_to_external_entity_and_emit(
-    case_external_entity: CaseExternalEntityLink,
+    case_external_entity: CaseExternalEntityLink, history_user: str | None
 ) -> CaseExternalEntityLink:
     """
     Remove the case-external entity relationship and emit an event to the Event Bridge.
     """
-    case_data = CaseSerializer(case_external_entity.case).data
-    external_entity_data = ExternalEntitySerializer(
-        case_external_entity.external_entity
-    ).data
-
-    relationship_change_event = CaseRelationshipStateChange(
-        action=Action.DELETE,
-        refId=str(case_external_entity.id),
-        addedVia=case_external_entity.added_via,
-        timestamp=case_external_entity.timestamp.isoformat(),
-        case=case_data,
-        externalEntity=external_entity_data,
-    )
-
-    # Delete and send events
+    if history_user:
+        case_external_entity._history_user = history_user
     case_external_entity.delete()
-    emit_event(
-        detail_type=DetailType.CaseRelationshipStateChange.value,
-        event_detail_model=relationship_change_event,
-    )
+
+    # TODO: Fix event schema
+    # case_data = CaseSerializer(case_external_entity.case).data
+    # external_entity_data = ExternalEntitySerializer(
+    #     case_external_entity.external_entity
+    # ).data
+    # relationship_change_event = CaseRelationshipStateChange(
+    #     action=Action.DELETE,
+    #     refId=str(case_external_entity.id),
+    #     addedVia=case_external_entity.added_via,
+    #     timestamp=case_external_entity.timestamp.isoformat(),
+    #     case=case_data,
+    #     externalEntity=external_entity_data,
+    # )
+    # emit_event(
+    #     detail_type=DetailType.CaseRelationshipStateChange.value,
+    #     event_detail_model=relationship_change_event,
+    # )
     return case_external_entity
+
+
+EventAction = Literal["created", "updated", "deleted", "archived"]
+ModelType = Literal[
+    "case", "state", "comment", "case_user_link", "case_external_entity_link"
+]
+
+
+class CaseHistoryEntry(TypedDict):
+    """
+    A single entry in a case's audit/history timeline.
+    Returned as a time-sorted list by get_case_history().
+    """
+
+    timestamp: str  # ISO datetime of when the event occurred
+    event_type: EventAction  # the action performed: create, update, or delete
+    model_type: ModelType  # which model was affected: case, state, or comment
+    actor: str | None  # user who triggered it (email); None if system
+    description: str  # human-readable one-liner summary
+    detail: dict[str, Any] | None
+
+
+def get_case_activity(case: Case) -> list:
+    """
+    Will generate a view of changes happening on a case.
+
+    Since this is generated by combining
+    """
+    entries: list[CaseHistoryEntry] = []
+
+    # --- Case field changes ---
+    for h in case.history.all():
+        if h.history_type == "~":
+            old_record = h.prev_record
+            delta = h.diff_against(old_record)
+            description = (
+                "; ".join(
+                    f"'{change.field}' changed from '{change.old}' to '{change.new}'"
+                    for change in delta.changes
+                )
+                or "Case updated"
+            )
+        elif h.history_type == "+":
+            description = "Case created"
+        else:
+            description = "Case deleted"
+        entries.append(
+            {
+                "timestamp": h.history_date.isoformat(),
+                "event_type": (
+                    "created"
+                    if h.history_type == "+"
+                    else "deleted" if h.history_type == "-" else "updated"
+                ),
+                "model_type": "case",
+                "actor": str(h.history_user_id) if h.history_user_id else None,
+                "description": description,
+                "detail": CaseHistorySerializer(h).data,
+            }
+        )
+
+    # --- Case User Link changes ---
+    for h in CaseUserLink.history.filter(case=case).select_related("user").all():
+        event_type: EventAction = (
+            "created"
+            if h.history_type == "+"
+            else "deleted" if h.history_type == "-" else "updated"
+        )
+
+        entries.append(
+            {
+                "timestamp": h.history_date.isoformat(),
+                "event_type": event_type,
+                "model_type": "case_user_link",
+                "actor": str(h.history_user_id) if h.history_user_id else None,
+                "description": f""""{h.user.email}" {event_type}""",
+                "detail": CaseUserLinkSerializer(h).data,
+            }
+        )
+
+    # --- Case User Link changes ---
+    for h in (
+        CaseExternalEntityLink.history.filter(case=case)
+        .select_related("external_entity")
+        .all()
+    ):
+        event_type: EventAction = (
+            "created"
+            if h.history_type == "+"
+            else "deleted" if h.history_type == "-" else "updated"
+        )
+        entries.append(
+            {
+                "timestamp": h.history_date.isoformat(),
+                "event_type": event_type,
+                "model_type": "case_external_entity_link",
+                "actor": str(h.history_user_id) if h.history_user_id else None,
+                "description": f""""{h.external_entity.alias}" {event_type}""",
+                "detail": CaseExternalEntityLinkSerializer(h).data,
+            }
+        )
+
+    # --- States (append-only) ---
+    for state in (
+        State.objects.filter(case=case)
+        .select_related("created_by", "archived_by")
+        .annotate(last_changed=Coalesce("archived_at", "created_at"))
+        .order_by("last_changed")
+    ):
+        entries.append(
+            {
+                "timestamp": (
+                    state.archived_at.isoformat()
+                    if state.is_archived
+                    else state.created_at.isoformat()
+                ),
+                "event_type": "archived" if state.is_archived else "created",
+                "model_type": "state",
+                "actor": (
+                    state.archived_by.email
+                    if state.archived_by
+                    else state.created_by.email
+                ),
+                "description": f"Status set to '{state.status}'",
+                "detail": {
+                    "orcabus_id": str(state.orcabus_id),
+                    "status": state.status,
+                    "created_at": state.created_at.isoformat(),
+                    "created_by": state.created_by.email,
+                    "is_archived": state.is_archived,
+                    "archived_at": (
+                        state.archived_at.isoformat() if state.archived_at else None
+                    ),
+                },
+            }
+        )
+
+    # --- Comments (append-only) ---
+    for comment in (
+        Comment.objects.filter(case=case)
+        .select_related("created_by", "archived_by")
+        .annotate(last_changed=Coalesce("archived_at", "created_at"))
+        .order_by("last_changed")
+    ):
+        entries.append(
+            {
+                "timestamp": (
+                    comment.archived_at.isoformat()
+                    if comment.archived_at
+                    else comment.created_at.isoformat()
+                ),
+                "event_type": "archived" if comment.is_archived else "created",
+                "model_type": "comment",
+                "actor": (
+                    comment.archived_by.email
+                    if comment.archived_by
+                    else comment.created_by.email
+                ),
+                "description": (
+                    f"Comment: {comment.text[:80]}..."
+                    if comment.text and len(comment.text) > 80
+                    else comment.text
+                ),
+                "detail": {
+                    "orcabus_id": str(comment.orcabus_id),
+                    "text": comment.text,
+                    "created_at": (
+                        comment.created_at.isoformat() if comment.created_at else None
+                    ),
+                    "is_archived": comment.is_archived,
+                    "archived_at": (
+                        comment.archived_at.isoformat() if comment.archived_at else None
+                    ),
+                },
+            }
+        )
+
+    return sorted(entries, key=lambda x: x["timestamp"], reverse=True)

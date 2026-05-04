@@ -16,7 +16,7 @@ class ExternalEntityCaseLinkSerializer(ModelSerializer):
 
     class Meta:
         model = CaseExternalEntityLink
-        fields = ["timestamp", "added_via", "case"]
+        fields = ["timestamp", "case"]
 
 
 class ExternalEntityDetailSerializer(ModelSerializer):

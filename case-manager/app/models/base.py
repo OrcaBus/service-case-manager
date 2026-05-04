@@ -19,7 +19,7 @@ from django.db.models import (
     OneToOneRel,
     QuerySet,
 )
-
+from simple_history.models import HistoricalRecords
 from rest_framework.settings import api_settings
 
 from app.pagination import PaginationConstant
@@ -121,3 +121,20 @@ class BaseModel(models.Model):
                 continue
             base_fields.add(f.name)
         return list(base_fields)
+
+
+class BaseHistoricalRecords(HistoricalRecords):
+    """
+    This should alter user_id tracking to models.CharField instead of user model
+    """
+
+    def _history_user_setter(self, historical_instance, user_id):
+        historical_instance.history_user_id = user_id
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(
+            history_user_id_field=models.CharField(null=True, blank=True),
+            history_user_setter=self._history_user_setter,
+            *args,
+            **kwargs,
+        )

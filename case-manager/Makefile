@@ -5,15 +5,16 @@ DB_PORT ?= 5432
 
 # installation
 install:
-	@pip install -r deps/requirements-dev.txt
+	@uv python install
+	@uv sync --group dev
 
 check: lint
 
-lint:
-	@black -t py312 --check . --exclude .venv
+lint: install
+	@uv run black -t py312 --check . --exclude .venv
 
-lint-fix:
-	@black -t py312 . --exclude .venv
+lint-fix: install
+	@uv run black -t py312 . --exclude .venv
 
 # docker compose shortcut
 up:
@@ -36,28 +37,28 @@ psql:
 # application
 
 start: migrate
-	@python manage.py runserver
+	@uv run python manage.py runserver
 
 docker-start: migrate
-	@python manage.py runserver 0.0.0.0:8000
+	@uv run python manage.py runserver 0.0.0.0:8000
 
 stop: down
 
 makemigrations:
-	@python manage.py makemigrations
+	@uv run python manage.py makemigrations
 
 migrate:
-	@python manage.py migrate
+	@uv run python manage.py migrate
 
 mock: reset-db migrate
-	@python manage.py insert_mock
+	@uv run python manage.py insert_mock
 
 suite:
-	@python manage.py test --parallel
+	@uv run python manage.py test --parallel
 
 coverage:
-	@coverage run manage.py test
-	@coverage report -m
+	@uv run coverage run manage.py test
+	@uv run coverage report -m
 
 # full mock suite test pipeline - install deps, bring up compose stack, run suite, bring down compose stack
 test: install up suite down
