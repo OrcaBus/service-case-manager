@@ -24,6 +24,7 @@ export class StatelessStack extends cdk.Stack {
               'runtime-versions': {
                 python: '3.13',
               },
+              commands: ['pip install uv'],
             },
           },
           version: '0.2',
