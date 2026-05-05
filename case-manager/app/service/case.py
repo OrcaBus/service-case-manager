@@ -165,12 +165,12 @@ def get_case_activity(case: Case) -> list:
                 "event_type": event_type,
                 "model_type": "case_user_link",
                 "actor": str(h.history_user_id) if h.history_user_id else None,
-                "description": f""""{h.user.email}" {event_type}""",
+                "description": f""""{h.user.email}" {"linked" if h.history_type == "+" else "unlinked"}",""",
                 "detail": CaseUserLinkSerializer(h).data,
             }
         )
 
-    # --- Case User Link changes ---
+    # --- Case External Entity Link changes ---
     for h in (
         CaseExternalEntityLink.history.filter(case=case)
         .select_related("external_entity")
@@ -187,7 +187,7 @@ def get_case_activity(case: Case) -> list:
                 "event_type": event_type,
                 "model_type": "case_external_entity_link",
                 "actor": str(h.history_user_id) if h.history_user_id else None,
-                "description": f""""{h.external_entity.alias}" {event_type}""",
+                "description": f""""{h.external_entity.alias}" {"linked" if h.history_type == "+" else "unlinked"}""",
                 "detail": CaseExternalEntityLinkSerializer(h).data,
             }
         )
