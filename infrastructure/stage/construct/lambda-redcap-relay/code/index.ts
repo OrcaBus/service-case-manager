@@ -104,6 +104,14 @@ async function postToCaseManager(record: unknown): Promise<void> {
 
   if (!response.ok) {
     const text = await response.text();
+
+    // The case manager returns 400 with this message when the requestFormId already exists.
+    // Treat it as a no-op — REDCap can fire duplicate webhooks for the same record.
+    if (response.status === 400 && text.includes('case with this request form id already exists')) {
+      console.log('Case already exists for this requestFormId — skipping');
+      return;
+    }
+
     throw new Error(`Case manager API error: ${response.status} - ${text}`);
   }
 
