@@ -25,6 +25,9 @@
     "typeRoots": [
       "./node_modules/@types"
     ],
+    "types": [
+      "node"
+    ],
     "skipLibCheck": true
   },
   "exclude": [

@@ -16,6 +16,7 @@ import {
 import { EventSchemaConstruct } from './construct/event-schema';
 import { LambdaCaseUpdateEvent } from './construct/lambda-update-event';
 import { LambdaCaseFinderConstruct } from './construct/lambda-case-finder';
+import { LambdaRedCapRelayConstruct } from './construct/lambda-redcap-relay';
 
 export type CaseManagerStackProps = {
   /**
@@ -120,5 +121,7 @@ export class CaseManagerStack extends Stack {
       databaseCluster: dbCluster,
       databaseName: this.CASE_MANAGER_DB_NAME,
     });
+
+    new LambdaRedCapRelayConstruct(this, 'LambdaRedCapRelay');
   }
 }
