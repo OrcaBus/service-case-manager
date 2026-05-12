@@ -27,7 +27,13 @@ def handler(event, _context):
 
         if after_date is None:
             raise RuntimeError("after_date is required")
-        logger.info(f"Processing REDCap records with after_date={after_date} and before_date={before_date}")
-        result = upsert_redcap_records_by_date_range(after_date=after_date, before_date=before_date)
+        logger.info(
+            f"Processing REDCap records with after_date={after_date} and before_date={before_date}"
+        )
+        result = upsert_redcap_records_by_date_range(
+            after_date=after_date, before_date=before_date
+        )
 
-    logger.info(f"Processing REDCap records completed: {result['synced']} synced, {result['failed']} failed")
+    logger.info(
+        f"Processing REDCap records completed: {result['synced']} synced, {result['failed']} failed"
+    )

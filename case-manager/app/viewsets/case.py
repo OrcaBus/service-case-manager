@@ -128,10 +128,14 @@ class CaseViewSet(BaseViewSetWithHistory, CaseLinkMixin):
         pk = self.kwargs.get("pk")
         case_obj = get_object_or_404(self.queryset, pk=pk)
 
-        records = get_redcap_record_by_filter(filter_logic=f"[request_id]={case_obj.request_form_id}")
+        records = get_redcap_record_by_filter(
+            filter_logic=f"[request_id]={case_obj.request_form_id}"
+        )
         if not records:
             return Response(
-                {"detail": f"No REDCap record found for request_form_id '{case_obj.request_form_id}'."},
+                {
+                    "detail": f"No REDCap record found for request_form_id '{case_obj.request_form_id}'."
+                },
                 status=status.HTTP_404_NOT_FOUND,
             )
         case = upsert_case_from_redcap_record(records[0])
@@ -139,7 +143,15 @@ class CaseViewSet(BaseViewSetWithHistory, CaseLinkMixin):
 
     @extend_schema(
         request=RedcapDateRangeSyncSerializer,
-        responses={"200": {"type": "object", "properties": {"synced": {"type": "integer"}, "failed": {"type": "integer"}}}},
+        responses={
+            "200": {
+                "type": "object",
+                "properties": {
+                    "synced": {"type": "integer"},
+                    "failed": {"type": "integer"},
+                },
+            }
+        },
         description="Sync cases from REDCap within a date range. Creates or updates matching cases.",
     )
     @action(detail=False, methods=["post"], url_path="sync-from-redcap")
@@ -151,9 +163,10 @@ class CaseViewSet(BaseViewSetWithHistory, CaseLinkMixin):
         if before_date:
             before_date = before_date.isoformat()
 
-        result = upsert_redcap_records_by_date_range(after_date=after_date, before_date=before_date)
+        result = upsert_redcap_records_by_date_range(
+            after_date=after_date, before_date=before_date
+        )
         return Response(result, status=status.HTTP_200_OK)
-
 
     @extend_schema(
         responses=StateSerializer(many=True),

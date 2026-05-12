@@ -24,10 +24,14 @@ def _get_redcap_token() -> str:
         return _redcap_token
 
     if not REDCAP_TOKEN_PARAMETER_NAME:
-        raise RuntimeError("REDCAP_TOKEN_PARAMETER_NAME environment variable is not set.")
+        raise RuntimeError(
+            "REDCAP_TOKEN_PARAMETER_NAME environment variable is not set."
+        )
 
     ssm = boto3.client("ssm")
-    response = ssm.get_parameters(Names=[REDCAP_TOKEN_PARAMETER_NAME], WithDecryption=True)
+    response = ssm.get_parameters(
+        Names=[REDCAP_TOKEN_PARAMETER_NAME], WithDecryption=True
+    )
 
     parameters = response.get("Parameters", [])
     if not parameters:
@@ -52,7 +56,9 @@ def _build_payload(**extra_fields) -> dict:
 
 def _post(payload: dict) -> list[dict]:
     """Send a POST request to the REDCap API and return the parsed JSON response."""
-    http_response = requests.post(REDCAP_ENDPOINT, data=payload, timeout=REQUEST_TIMEOUT)
+    http_response = requests.post(
+        REDCAP_ENDPOINT, data=payload, timeout=REQUEST_TIMEOUT
+    )
     if http_response.status_code == 200:
         return http_response.json()
     raise Exception(
@@ -60,7 +66,9 @@ def _post(payload: dict) -> list[dict]:
     )
 
 
-def get_redcap_record_by_date_range(after_date: Optional[str] = None, before_date: Optional[str] = None) -> list[dict]:
+def get_redcap_record_by_date_range(
+    after_date: Optional[str] = None, before_date: Optional[str] = None
+) -> list[dict]:
     """Fetch REDCap records within a given date range."""
     payload = _build_payload(dateRangeBegin=after_date, dateRangeEnd=before_date)
     return _post(payload)
@@ -96,7 +104,9 @@ def upsert_case_from_redcap_record(record: dict[str, str]) -> Case:
     try:
         case = Case.objects.get(request_form_id=request_form_id)
         if case.type != case_type:
-            logger.info(f"Updating case {request_form_id}: type {case.type} -> {case_type}")
+            logger.info(
+                f"Updating case {request_form_id}: type {case.type} -> {case_type}"
+            )
             case.type = case_type
             case.save()
         else:
@@ -104,20 +114,26 @@ def upsert_case_from_redcap_record(record: dict[str, str]) -> Case:
         return case
     except Case.DoesNotExist:
         logger.info(f"Creating new case {request_form_id} with type {case_type}")
-        case = Case(request_form_id=request_form_id, type=case_type, study_type="clinical")
+        case = Case(
+            request_form_id=request_form_id, type=case_type, study_type="clinical"
+        )
         case.save()
 
         return case
 
 
-def upsert_redcap_records_by_date_range(after_date: str, before_date: Optional[str] = None) -> dict:
+def upsert_redcap_records_by_date_range(
+    after_date: str, before_date: Optional[str] = None
+) -> dict:
     """Fetch records from REDCap by date range and upsert them into the Case model.
 
     Processes all records, logging individual failures without aborting the batch.
 
     Returns a dict with 'synced' and 'failed' counts.
     """
-    records = get_redcap_record_by_date_range(after_date=after_date, before_date=before_date)
+    records = get_redcap_record_by_date_range(
+        after_date=after_date, before_date=before_date
+    )
 
     synced = 0
     failed = 0
