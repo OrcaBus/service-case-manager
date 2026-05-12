@@ -6,17 +6,10 @@ import { Code, Runtime, Architecture, LayerVersion } from 'aws-cdk-lib/aws-lambd
 import { OrcaBusApiGatewayProps } from '@orcabus/platform-cdk-constructs/api-gateway';
 import { LambdaMigrationConstruct } from './construct/lambda-migration';
 import { LambdaAPIConstruct } from './construct/lambda-api';
-import { DatabaseCluster } from 'aws-cdk-lib/aws-rds';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
-import {
-  DB_CLUSTER_ENDPOINT_HOST_PARAMETER_NAME,
-  DB_CLUSTER_IDENTIFIER,
-  DB_CLUSTER_RESOURCE_ID_PARAMETER_NAME,
-} from '@orcabus/platform-cdk-constructs/shared-config/database';
+import { DB_CLUSTER_ENDPOINT_HOST_PARAMETER_NAME } from '@orcabus/platform-cdk-constructs/shared-config/database';
 import { EventSchemaConstruct } from './construct/event-schema';
-import { LambdaCaseUpdateEvent } from './construct/lambda-update-event';
-import { LambdaCaseFinderConstruct } from './construct/lambda-case-finder';
-import { LambdaRedCapRelayConstruct } from './construct/lambda-redcap-relay';
+import { LambdaRedCapImportConstruct } from './construct/lambda-redcap-import';
 
 export type CaseManagerStackProps = {
   /**
@@ -59,18 +52,10 @@ export class CaseManagerStack extends Stack {
     });
 
     // Grab the database cluster
-    const clusterResourceIdentifier = StringParameter.valueForStringParameter(
-      this,
-      DB_CLUSTER_RESOURCE_ID_PARAMETER_NAME
-    );
     const clusterHostEndpoint = StringParameter.valueForStringParameter(
       this,
       DB_CLUSTER_ENDPOINT_HOST_PARAMETER_NAME
     );
-    const dbCluster = DatabaseCluster.fromDatabaseClusterAttributes(this, 'OrcabusDbCluster', {
-      clusterIdentifier: DB_CLUSTER_IDENTIFIER,
-      clusterResourceIdentifier: clusterResourceIdentifier,
-    });
 
     const basicLambdaConfig = {
       entry: path.join(__dirname, '../../case-manager'),
@@ -94,34 +79,18 @@ export class CaseManagerStack extends Stack {
 
     new LambdaMigrationConstruct(this, 'MigrationLambda', {
       basicLambdaConfig: basicLambdaConfig,
-      databaseCluster: dbCluster,
-      databaseName: this.CASE_MANAGER_DB_NAME,
-      vpc: vpc,
     });
 
-    const caseFinder = new LambdaCaseFinderConstruct(this, 'CaseFinderLambda', {
+    const caseFinder = new LambdaRedCapImportConstruct(this, 'RedCapImportLambda', {
       basicLambdaConfig: basicLambdaConfig,
-      databaseCluster: dbCluster,
-      databaseName: this.CASE_MANAGER_DB_NAME,
-      vpc: vpc,
     });
 
     new LambdaAPIConstruct(this, 'APILambda', {
       basicLambdaConfig: basicLambdaConfig,
-      databaseCluster: dbCluster,
-      databaseName: this.CASE_MANAGER_DB_NAME,
       apiGatewayConstructProps: props.apiGatewayCognitoProps,
       caseAutoInferLambda: caseFinder.lambda,
     });
 
     new EventSchemaConstruct(this, 'EventSchema');
-
-    new LambdaCaseUpdateEvent(this, 'LambdaCaseUpdateEvent', {
-      basicLambdaConfig: basicLambdaConfig,
-      databaseCluster: dbCluster,
-      databaseName: this.CASE_MANAGER_DB_NAME,
-    });
-
-    new LambdaRedCapRelayConstruct(this, 'LambdaRedCapRelay');
   }
 }

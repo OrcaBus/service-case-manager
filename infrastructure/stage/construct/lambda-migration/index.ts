@@ -1,27 +1,15 @@
 import { Construct } from 'constructs';
 import { PythonFunction, PythonFunctionProps } from '@aws-cdk/aws-lambda-python-alpha';
 import { InvocationType, Trigger } from 'aws-cdk-lib/triggers';
-import { IDatabaseCluster } from 'aws-cdk-lib/aws-rds';
-import { IVpc } from 'aws-cdk-lib/aws-ec2';
 import { Duration } from 'aws-cdk-lib';
+import { formatRdsPolicyName } from '@orcabus/platform-cdk-constructs/shared-config/database';
+import { ManagedPolicy } from 'aws-cdk-lib/aws-iam';
 
 type LambdaProps = {
   /**
    * The basic common lambda properties that it should inherit from
    */
   basicLambdaConfig: PythonFunctionProps;
-  /**
-   * The db cluster to where the lambda authorize to connect
-   */
-  databaseCluster: IDatabaseCluster;
-  /**
-   * The database name that the lambda will use
-   */
-  databaseName: string;
-  /**
-   * VPC used for Custom Provider Function
-   */
-  vpc: IVpc;
 };
 
 export class LambdaMigrationConstruct extends Construct {
@@ -35,7 +23,13 @@ export class LambdaMigrationConstruct extends Construct {
       handler: 'handler',
       timeout: Duration.minutes(5),
     });
-    props.databaseCluster.grantConnect(migrationLambda, props.databaseName);
+    migrationLambda.role?.addManagedPolicy(
+      ManagedPolicy.fromManagedPolicyName(
+        this,
+        'OrcabusRdsConnectPolicy',
+        formatRdsPolicyName('case_manager')
+      )
+    );
 
     new Trigger(this, 'MigrationLambdaTrigger', {
       handler: migrationLambda,

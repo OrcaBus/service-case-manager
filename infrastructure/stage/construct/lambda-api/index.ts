@@ -12,26 +12,19 @@ import {
   OrcaBusApiGateway,
   OrcaBusApiGatewayProps,
 } from '@orcabus/platform-cdk-constructs/api-gateway';
-import { IDatabaseCluster } from 'aws-cdk-lib/aws-rds';
 import { EVENT_BUS_NAME } from '@orcabus/platform-cdk-constructs/shared-config/event-bridge';
 import { EventBus } from 'aws-cdk-lib/aws-events';
 import { Secret } from 'aws-cdk-lib/aws-secretsmanager';
 import { JWT_SECRET_NAME } from '@orcabus/platform-cdk-constructs/shared-config/secrets';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
+import { ManagedPolicy } from 'aws-cdk-lib/aws-iam';
+import { formatRdsPolicyName } from '@orcabus/platform-cdk-constructs/shared-config/database';
 
 type LambdaProps = {
   /**
    * The basic common lambda properties that it should inherit from
    */
   basicLambdaConfig: PythonFunctionProps;
-  /**
-   * The db cluster to where the lambda authorize to connect
-   */
-  databaseCluster: IDatabaseCluster;
-  /**
-   * The database name that the lambda will use
-   */
-  databaseName: string;
   /**
    * The props for api-gateway
    */
@@ -62,7 +55,13 @@ export class LambdaAPIConstruct extends Construct {
       timeout: Duration.seconds(28),
       memorySize: 1024,
     });
-    lambdaProps.databaseCluster.grantConnect(this.lambda, lambdaProps.databaseName);
+    this.lambda.role?.addManagedPolicy(
+      ManagedPolicy.fromManagedPolicyName(
+        this,
+        'OrcabusRdsConnectPolicy',
+        formatRdsPolicyName('case_manager')
+      )
+    );
 
     // allow api lambda to invoke auto-infer case lambda
     this.lambda.addEnvironment(
