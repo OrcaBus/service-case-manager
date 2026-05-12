@@ -24,6 +24,10 @@ export type CaseManagerStackProps = {
    * API Gateway props
    */
   apiGatewayCognitoProps: OrcaBusApiGatewayProps;
+  /**
+   * Trigger import from redcap daily
+   */
+  isDailySyncRedCap?: boolean;
 };
 
 export class CaseManagerStack extends Stack {
@@ -83,6 +87,7 @@ export class CaseManagerStack extends Stack {
 
     const caseFinder = new LambdaRedCapImportConstruct(this, 'RedCapImportLambda', {
       basicLambdaConfig: basicLambdaConfig,
+      isDailySync: props.isDailySyncRedCap,
     });
 
     new LambdaAPIConstruct(this, 'APILambda', {
