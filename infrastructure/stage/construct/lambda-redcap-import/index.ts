@@ -7,19 +7,19 @@ import { formatRdsPolicyName } from '@orcabus/platform-cdk-constructs/shared-con
 import { LambdaFunction } from 'aws-cdk-lib/aws-events-targets';
 import { Rule, Schedule } from 'aws-cdk-lib/aws-events';
 
-const REDCAP_TOKEN_PARAMETER_NAME = '/orcabus/case-manager/redcap/redcap-api-token';
+export const REDCAP_TOKEN_PARAMETER_NAME = '/orcabus/case-manager/redcap/redcap-api-token';
 
 type RedCapLambdaProps = {
   /**
    * The basic common lambda properties that it should inherit from
    */
   basicLambdaConfig: PythonFunctionProps;
-  /**
-   * Trigger daily sync every night
-   */
-  isDailySync?: boolean;
 };
 
+/**
+ * The lambda that triggered by the event bridge rule in interval
+ * The setup is triggered daily on roughly every midnight (10.59pm AEST or 11.59pm AEDT)
+ */
 export class LambdaRedCapImportConstruct extends Construct {
   readonly lambda: PythonFunction;
   constructor(scope: Construct, id: string, props: RedCapLambdaProps) {
@@ -48,14 +48,12 @@ export class LambdaRedCapImportConstruct extends Construct {
     );
     redcapTokenSSM.grantRead(this.lambda);
 
-    if (props.isDailySync) {
-      // Add scheduled event to re-sync metadata every midnight
-      const redCapLambdaEventTarget = new LambdaFunction(this.lambda);
-      new Rule(this, 'RedCapLambdaTriggerScheduledRule', {
-        description: 'Scheduled rule to trigger import case from REDCap',
-        schedule: Schedule.expression('cron(0 13 * * ? *)'), // 11pm AEST or 12am AEDT
-        targets: [redCapLambdaEventTarget],
-      });
-    }
+    // Add scheduled event to re-sync metadata every midnight
+    const redCapLambdaEventTarget = new LambdaFunction(this.lambda);
+    new Rule(this, 'RedCapLambdaTriggerScheduledRule', {
+      description: 'Scheduled rule to trigger import case from REDCap',
+      schedule: Schedule.expression('cron(59 12 * * ? *)'), // 10:59pm AEST or 11:59pm AEDT
+      targets: [redCapLambdaEventTarget],
+    });
   }
 }

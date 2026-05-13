@@ -85,15 +85,15 @@ export class CaseManagerStack extends Stack {
       basicLambdaConfig: basicLambdaConfig,
     });
 
-    const caseFinder = new LambdaRedCapImportConstruct(this, 'RedCapImportLambda', {
-      basicLambdaConfig: basicLambdaConfig,
-      isDailySync: props.isDailySyncRedCap,
-    });
+    if (props.isDailySyncRedCap) {
+      new LambdaRedCapImportConstruct(this, 'RedCapImportLambda', {
+        basicLambdaConfig: basicLambdaConfig,
+      });
+    }
 
     new LambdaAPIConstruct(this, 'APILambda', {
       basicLambdaConfig: basicLambdaConfig,
       apiGatewayConstructProps: props.apiGatewayCognitoProps,
-      caseAutoInferLambda: caseFinder.lambda,
     });
 
     new EventSchemaConstruct(this, 'EventSchema');

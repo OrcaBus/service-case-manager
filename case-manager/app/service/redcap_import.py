@@ -70,7 +70,12 @@ def get_redcap_record_by_date_range(
     after_date: Optional[str] = None, before_date: Optional[str] = None
 ) -> list[dict]:
     """Fetch REDCap records within a given date range."""
-    payload = _build_payload(dateRangeBegin=after_date, dateRangeEnd=before_date)
+    extra = {}
+    if after_date:
+        extra["dateRangeBegin"] = after_date
+    if before_date:
+        extra["dateRangeEnd"] = before_date
+    payload = _build_payload(**extra)
     return _post(payload)
 
 
