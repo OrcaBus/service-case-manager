@@ -1,9 +1,7 @@
-import os
-import boto3
 from drf_spectacular.utils import extend_schema
+from rest_framework import serializers
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.mixins import DestroyModelMixin
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from app.models import Case, CaseExternalEntityLink, State, User, CaseUserLink
@@ -11,18 +9,27 @@ from app.serializers import (
     CaseDetailSerializer,
     CaseExternalEntityLinkCreateSerializer,
     CaseUserCreateSerializer,
-    CaseSerializer,
     StateSerializer,
 )
 from .base import BaseViewSetWithHistory
 from .utils import get_email_from_jwt
-from ..serializers.case import CaseHistorySerializer, CaseTimelineSerializer
+from ..serializers.case import CaseTimelineSerializer
 from ..service.case import (
     link_case_to_external_entity_and_emit,
     unlink_case_to_external_entity_and_emit,
     get_case_activity,
 )
 from ..service.external_entity import get_or_create_external_entity
+from ..service.redcap_import import (
+    get_redcap_record_by_filter,
+    upsert_case_from_redcap_record,
+    upsert_redcap_records_by_date_range,
+)
+
+
+class RedcapDateRangeSyncSerializer(serializers.Serializer):
+    after_date = serializers.DateField()
+    before_date = serializers.DateField(required=False, allow_null=True, default=None)
 
 
 class CaseLinkMixin:
@@ -109,6 +116,57 @@ class CaseViewSet(BaseViewSetWithHistory, CaseLinkMixin):
         qs = self.queryset
         query_params = self.request.query_params.copy()
         return Case.objects.get_by_keyword(qs, **query_params)
+
+    @extend_schema(
+        request=None,
+        responses=CaseDetailSerializer,
+        description="Sync a case from REDCap by its request form ID. Updates the case.",
+    )
+    @action(detail=True, methods=["post"], url_path="sync-from-redcap")
+    def sync_from_redcap(self, request, *args, **kwargs):
+
+        pk = self.kwargs.get("pk")
+        case_obj = get_object_or_404(self.queryset, pk=pk)
+
+        records = get_redcap_record_by_filter(
+            filter_logic=f"[request_id]={case_obj.request_form_id}"
+        )
+        if not records:
+            return Response(
+                {
+                    "detail": f"No REDCap record found for request_form_id '{case_obj.request_form_id}'."
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        case = upsert_case_from_redcap_record(records[0])
+        return Response(CaseDetailSerializer(case).data, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        request=RedcapDateRangeSyncSerializer,
+        responses={
+            "200": {
+                "type": "object",
+                "properties": {
+                    "synced": {"type": "integer"},
+                    "failed": {"type": "integer"},
+                },
+            }
+        },
+        description="Sync cases from REDCap within a date range. Creates or updates matching cases.",
+    )
+    @action(detail=False, methods=["post"], url_path="sync-from-redcap")
+    def sync_from_redcap_by_date_range(self, request, *args, **kwargs):
+        serializer = RedcapDateRangeSyncSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        after_date = serializer.validated_data["after_date"].isoformat()
+        before_date = serializer.validated_data.get("before_date")
+        if before_date:
+            before_date = before_date.isoformat()
+
+        result = upsert_redcap_records_by_date_range(
+            after_date=after_date, before_date=before_date
+        )
+        return Response(result, status=status.HTTP_200_OK)
 
     @extend_schema(
         responses=StateSerializer(many=True),

@@ -13,8 +13,7 @@ import {
   formatRdsPolicyName,
 } from '@orcabus/platform-cdk-constructs/shared-config/database';
 import { EventSchemaConstruct } from './construct/event-schema';
-import { LambdaCaseUpdateEvent } from './construct/lambda-update-event';
-import { LambdaCaseFinderConstruct } from './construct/lambda-case-finder';
+import { LambdaRedCapImportConstruct } from './construct/lambda-redcap-import';
 
 export type CaseManagerStackProps = {
   /**
@@ -29,6 +28,10 @@ export type CaseManagerStackProps = {
    * API Gateway props
    */
   apiGatewayCognitoProps: OrcaBusApiGatewayProps;
+  /**
+   * Trigger import from redcap daily
+   */
+  isDailySyncRedCap?: boolean;
 };
 
 export class CaseManagerStack extends Stack {
@@ -89,27 +92,20 @@ export class CaseManagerStack extends Stack {
     new LambdaMigrationConstruct(this, 'MigrationLambda', {
       basicLambdaConfig: basicLambdaConfig,
       rdsConnectPolicy: rdsConnectPolicy,
-      vpc: vpc,
     });
 
-    const caseFinder = new LambdaCaseFinderConstruct(this, 'CaseFinderLambda', {
-      basicLambdaConfig: basicLambdaConfig,
-      rdsConnectPolicy: rdsConnectPolicy,
-      vpc: vpc,
-    });
+    if (props.isDailySyncRedCap) {
+      new LambdaRedCapImportConstruct(this, 'RedCapImportLambda', {
+        basicLambdaConfig: basicLambdaConfig,
+      });
+    }
 
     new LambdaAPIConstruct(this, 'APILambda', {
       basicLambdaConfig: basicLambdaConfig,
-      rdsConnectPolicy: rdsConnectPolicy,
       apiGatewayConstructProps: props.apiGatewayCognitoProps,
-      caseAutoInferLambda: caseFinder.lambda,
+      rdsConnectPolicy: rdsConnectPolicy,
     });
 
     new EventSchemaConstruct(this, 'EventSchema');
-
-    new LambdaCaseUpdateEvent(this, 'LambdaCaseUpdateEvent', {
-      basicLambdaConfig: basicLambdaConfig,
-      rdsConnectPolicy: rdsConnectPolicy,
-    });
   }
 }

@@ -2,7 +2,6 @@ import { Construct } from 'constructs';
 import { PythonFunction, PythonFunctionProps } from '@aws-cdk/aws-lambda-python-alpha';
 import { InvocationType, Trigger } from 'aws-cdk-lib/triggers';
 import { IManagedPolicy } from 'aws-cdk-lib/aws-iam';
-import { IVpc } from 'aws-cdk-lib/aws-ec2';
 import { Duration } from 'aws-cdk-lib';
 
 type LambdaProps = {
@@ -14,10 +13,6 @@ type LambdaProps = {
    * Managed policy granting `rds-db:connect` on the RDS cluster
    */
   rdsConnectPolicy: IManagedPolicy;
-  /**
-   * VPC used for Custom Provider Function
-   */
-  vpc: IVpc;
 };
 
 export class LambdaMigrationConstruct extends Construct {

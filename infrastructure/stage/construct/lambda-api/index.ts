@@ -18,6 +18,7 @@ import { EventBus } from 'aws-cdk-lib/aws-events';
 import { Secret } from 'aws-cdk-lib/aws-secretsmanager';
 import { JWT_SECRET_NAME } from '@orcabus/platform-cdk-constructs/shared-config/secrets';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
+import { REDCAP_TOKEN_PARAMETER_NAME } from '../lambda-redcap-import';
 
 type LambdaProps = {
   /**
@@ -32,10 +33,6 @@ type LambdaProps = {
    * The props for api-gateway
    */
   apiGatewayConstructProps: OrcaBusApiGatewayProps;
-  /**
-   * The lambda that will automatically auto infer cases
-   */
-  caseAutoInferLambda: PythonFunction;
 };
 
 export class LambdaAPIConstruct extends Construct {
@@ -60,12 +57,13 @@ export class LambdaAPIConstruct extends Construct {
     });
     this.lambda.role?.addManagedPolicy(lambdaProps.rdsConnectPolicy);
 
-    // allow api lambda to invoke auto-infer case lambda
-    this.lambda.addEnvironment(
-      'CASE_FINDER_LAMBDA_ARN',
-      lambdaProps.caseAutoInferLambda.functionArn
+    this.lambda.addEnvironment('REDCAP_TOKEN_PARAMETER_NAME', REDCAP_TOKEN_PARAMETER_NAME);
+    const redcapTokenSSM = StringParameter.fromSecureStringParameterAttributes(
+      this,
+      'RedcapTokenSSM',
+      { parameterName: REDCAP_TOKEN_PARAMETER_NAME }
     );
-    lambdaProps.caseAutoInferLambda.grantInvoke(this.lambda);
+    redcapTokenSSM.grantRead(this.lambda);
 
     // pass the domain name for other services
     const hostedZoneName = StringParameter.valueFromLookup(this, '/hosted_zone/umccr/name');
