@@ -1,6 +1,6 @@
 import { Construct } from 'constructs';
 import { PythonFunction, PythonFunctionProps } from '@aws-cdk/aws-lambda-python-alpha';
-import { IDatabaseCluster } from 'aws-cdk-lib/aws-rds';
+import { IManagedPolicy } from 'aws-cdk-lib/aws-iam';
 import { Duration } from 'aws-cdk-lib';
 import { EventBus, Rule } from 'aws-cdk-lib/aws-events';
 import { EVENT_BUS_NAME } from '@orcabus/platform-cdk-constructs/shared-config/event-bridge';
@@ -12,13 +12,9 @@ type LambdaProps = {
    */
   basicLambdaConfig: PythonFunctionProps;
   /**
-   * The db cluster to where the lambda authorize to connect
+   * Managed policy granting `rds-db:connect` on the RDS cluster
    */
-  databaseCluster: IDatabaseCluster;
-  /**
-   * The database name that the lambda will use
-   */
-  databaseName: string;
+  rdsConnectPolicy: IManagedPolicy;
 };
 
 export class LambdaCaseUpdateEvent extends Construct {
@@ -33,7 +29,7 @@ export class LambdaCaseUpdateEvent extends Construct {
       handler: 'handler',
       timeout: Duration.minutes(5),
     });
-    props.databaseCluster.grantConnect(processEventLambda, props.databaseName);
+    processEventLambda.role?.addManagedPolicy(props.rdsConnectPolicy);
 
     orcabusEventBus.grantPutEventsTo(processEventLambda);
     processEventLambda.addEnvironment('EVENT_BUS_NAME', EVENT_BUS_NAME);
