@@ -12,13 +12,12 @@ import {
   OrcaBusApiGateway,
   OrcaBusApiGatewayProps,
 } from '@orcabus/platform-cdk-constructs/api-gateway';
+import { IManagedPolicy } from 'aws-cdk-lib/aws-iam';
 import { EVENT_BUS_NAME } from '@orcabus/platform-cdk-constructs/shared-config/event-bridge';
 import { EventBus } from 'aws-cdk-lib/aws-events';
 import { Secret } from 'aws-cdk-lib/aws-secretsmanager';
 import { JWT_SECRET_NAME } from '@orcabus/platform-cdk-constructs/shared-config/secrets';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
-import { ManagedPolicy } from 'aws-cdk-lib/aws-iam';
-import { formatRdsPolicyName } from '@orcabus/platform-cdk-constructs/shared-config/database';
 import { REDCAP_TOKEN_PARAMETER_NAME } from '../lambda-redcap-import';
 
 type LambdaProps = {
@@ -26,6 +25,10 @@ type LambdaProps = {
    * The basic common lambda properties that it should inherit from
    */
   basicLambdaConfig: PythonFunctionProps;
+  /**
+   * Managed policy granting `rds-db:connect` on the RDS cluster
+   */
+  rdsConnectPolicy: IManagedPolicy;
   /**
    * The props for api-gateway
    */
@@ -52,13 +55,7 @@ export class LambdaAPIConstruct extends Construct {
       timeout: Duration.seconds(28),
       memorySize: 1024,
     });
-    this.lambda.role?.addManagedPolicy(
-      ManagedPolicy.fromManagedPolicyName(
-        this,
-        'OrcabusRdsConnectPolicy',
-        formatRdsPolicyName('case_manager')
-      )
-    );
+    this.lambda.role?.addManagedPolicy(lambdaProps.rdsConnectPolicy);
 
     this.lambda.addEnvironment('REDCAP_TOKEN_PARAMETER_NAME', REDCAP_TOKEN_PARAMETER_NAME);
     const redcapTokenSSM = StringParameter.fromSecureStringParameterAttributes(

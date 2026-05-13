@@ -6,8 +6,12 @@ import { Code, Runtime, Architecture, LayerVersion } from 'aws-cdk-lib/aws-lambd
 import { OrcaBusApiGatewayProps } from '@orcabus/platform-cdk-constructs/api-gateway';
 import { LambdaMigrationConstruct } from './construct/lambda-migration';
 import { LambdaAPIConstruct } from './construct/lambda-api';
+import { ManagedPolicy } from 'aws-cdk-lib/aws-iam';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
-import { DB_CLUSTER_ENDPOINT_HOST_PARAMETER_NAME } from '@orcabus/platform-cdk-constructs/shared-config/database';
+import {
+  DB_CLUSTER_ENDPOINT_HOST_PARAMETER_NAME,
+  formatRdsPolicyName,
+} from '@orcabus/platform-cdk-constructs/shared-config/database';
 import { EventSchemaConstruct } from './construct/event-schema';
 import { LambdaRedCapImportConstruct } from './construct/lambda-redcap-import';
 
@@ -55,10 +59,14 @@ export class CaseManagerStack extends Stack {
       compatibleRuntimes: [Runtime.PYTHON_3_13],
     });
 
-    // Grab the database cluster
     const clusterHostEndpoint = StringParameter.valueForStringParameter(
       this,
       DB_CLUSTER_ENDPOINT_HOST_PARAMETER_NAME
+    );
+    const rdsConnectPolicy = ManagedPolicy.fromManagedPolicyName(
+      this,
+      'RdsConnectPolicy',
+      formatRdsPolicyName(this.CASE_MANAGER_DB_USER)
     );
 
     const basicLambdaConfig = {
@@ -83,6 +91,7 @@ export class CaseManagerStack extends Stack {
 
     new LambdaMigrationConstruct(this, 'MigrationLambda', {
       basicLambdaConfig: basicLambdaConfig,
+      rdsConnectPolicy: rdsConnectPolicy,
     });
 
     if (props.isDailySyncRedCap) {
@@ -94,6 +103,7 @@ export class CaseManagerStack extends Stack {
     new LambdaAPIConstruct(this, 'APILambda', {
       basicLambdaConfig: basicLambdaConfig,
       apiGatewayConstructProps: props.apiGatewayCognitoProps,
+      rdsConnectPolicy: rdsConnectPolicy,
     });
 
     new EventSchemaConstruct(this, 'EventSchema');
