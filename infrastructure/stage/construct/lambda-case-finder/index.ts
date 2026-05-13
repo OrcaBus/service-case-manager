@@ -1,6 +1,6 @@
 import { Construct } from 'constructs';
 import { PythonFunction, PythonFunctionProps } from '@aws-cdk/aws-lambda-python-alpha';
-import { IDatabaseCluster } from 'aws-cdk-lib/aws-rds';
+import { IManagedPolicy } from 'aws-cdk-lib/aws-iam';
 import { IVpc } from 'aws-cdk-lib/aws-ec2';
 import { Duration } from 'aws-cdk-lib';
 import { Secret } from 'aws-cdk-lib/aws-secretsmanager';
@@ -11,13 +11,9 @@ type LambdaProps = {
    */
   basicLambdaConfig: PythonFunctionProps;
   /**
-   * The db cluster to where the lambda authorize to connect
+   * Managed policy granting `rds-db:connect` on the RDS cluster
    */
-  databaseCluster: IDatabaseCluster;
-  /**
-   * The database name that the lambda will use
-   */
-  databaseName: string;
+  rdsConnectPolicy: IManagedPolicy;
   /**
    * VPC used for Custom Provider Function
    */
@@ -40,7 +36,7 @@ export class LambdaCaseFinderConstruct extends Construct {
     });
     this.lambda.addEnvironment('ORCABUS_RO_USER_SECRET_ARN', roOrcabusDbCreds.secretArn);
 
-    props.databaseCluster.grantConnect(this.lambda, props.databaseName);
+    this.lambda.role?.addManagedPolicy(props.rdsConnectPolicy);
     roOrcabusDbCreds.grantRead(this.lambda);
   }
 }

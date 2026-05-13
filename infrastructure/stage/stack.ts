@@ -6,12 +6,11 @@ import { Code, Runtime, Architecture, LayerVersion } from 'aws-cdk-lib/aws-lambd
 import { OrcaBusApiGatewayProps } from '@orcabus/platform-cdk-constructs/api-gateway';
 import { LambdaMigrationConstruct } from './construct/lambda-migration';
 import { LambdaAPIConstruct } from './construct/lambda-api';
-import { DatabaseCluster } from 'aws-cdk-lib/aws-rds';
+import { ManagedPolicy } from 'aws-cdk-lib/aws-iam';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import {
   DB_CLUSTER_ENDPOINT_HOST_PARAMETER_NAME,
-  DB_CLUSTER_IDENTIFIER,
-  DB_CLUSTER_RESOURCE_ID_PARAMETER_NAME,
+  formatRdsPolicyName,
 } from '@orcabus/platform-cdk-constructs/shared-config/database';
 import { EventSchemaConstruct } from './construct/event-schema';
 import { LambdaCaseUpdateEvent } from './construct/lambda-update-event';
@@ -57,19 +56,15 @@ export class CaseManagerStack extends Stack {
       compatibleRuntimes: [Runtime.PYTHON_3_13],
     });
 
-    // Grab the database cluster
-    const clusterResourceIdentifier = StringParameter.valueForStringParameter(
-      this,
-      DB_CLUSTER_RESOURCE_ID_PARAMETER_NAME
-    );
     const clusterHostEndpoint = StringParameter.valueForStringParameter(
       this,
       DB_CLUSTER_ENDPOINT_HOST_PARAMETER_NAME
     );
-    const dbCluster = DatabaseCluster.fromDatabaseClusterAttributes(this, 'OrcabusDbCluster', {
-      clusterIdentifier: DB_CLUSTER_IDENTIFIER,
-      clusterResourceIdentifier: clusterResourceIdentifier,
-    });
+    const rdsConnectPolicy = ManagedPolicy.fromManagedPolicyName(
+      this,
+      'RdsConnectPolicy',
+      formatRdsPolicyName(this.CASE_MANAGER_DB_USER)
+    );
 
     const basicLambdaConfig = {
       entry: path.join(__dirname, '../../case-manager'),
@@ -93,22 +88,19 @@ export class CaseManagerStack extends Stack {
 
     new LambdaMigrationConstruct(this, 'MigrationLambda', {
       basicLambdaConfig: basicLambdaConfig,
-      databaseCluster: dbCluster,
-      databaseName: this.CASE_MANAGER_DB_NAME,
+      rdsConnectPolicy: rdsConnectPolicy,
       vpc: vpc,
     });
 
     const caseFinder = new LambdaCaseFinderConstruct(this, 'CaseFinderLambda', {
       basicLambdaConfig: basicLambdaConfig,
-      databaseCluster: dbCluster,
-      databaseName: this.CASE_MANAGER_DB_NAME,
+      rdsConnectPolicy: rdsConnectPolicy,
       vpc: vpc,
     });
 
     new LambdaAPIConstruct(this, 'APILambda', {
       basicLambdaConfig: basicLambdaConfig,
-      databaseCluster: dbCluster,
-      databaseName: this.CASE_MANAGER_DB_NAME,
+      rdsConnectPolicy: rdsConnectPolicy,
       apiGatewayConstructProps: props.apiGatewayCognitoProps,
       caseAutoInferLambda: caseFinder.lambda,
     });
@@ -117,8 +109,7 @@ export class CaseManagerStack extends Stack {
 
     new LambdaCaseUpdateEvent(this, 'LambdaCaseUpdateEvent', {
       basicLambdaConfig: basicLambdaConfig,
-      databaseCluster: dbCluster,
-      databaseName: this.CASE_MANAGER_DB_NAME,
+      rdsConnectPolicy: rdsConnectPolicy,
     });
   }
 }
