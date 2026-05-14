@@ -4,12 +4,20 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from rest_framework import status
-from app.models import Case, CaseExternalEntityLink, State, User, CaseUserLink
+from app.models import (
+    Case,
+    CaseExternalEntityLink,
+    State,
+    User,
+    CaseUserLink,
+    ExternalSyncLog,
+)
 from app.serializers import (
     CaseDetailSerializer,
     CaseExternalEntityLinkCreateSerializer,
     CaseUserCreateSerializer,
     StateSerializer,
+    ExternalSyncLogSerializer,
 )
 from .base import BaseViewSetWithHistory
 from .utils import get_email_from_jwt
@@ -24,6 +32,7 @@ from ..service.redcap_import import (
     get_redcap_record_by_filter,
     upsert_case_from_redcap_record,
     upsert_redcap_records_by_date_range,
+    auto_sync_redcap_records,
 )
 
 
@@ -119,11 +128,45 @@ class CaseViewSet(BaseViewSetWithHistory, CaseLinkMixin):
 
     @extend_schema(
         request=None,
+        responses={
+            "200": {
+                "type": "object",
+                "properties": {
+                    "synced": {"type": "integer"},
+                    "failed": {"type": "integer"},
+                },
+            }
+        },
+        description="Sync cases from REDCap from the last auto sync to the time this API is triggered.",
+    )
+    @action(detail=False, methods=["post"], url_path="sync-from-redcap/auto")
+    def sync_from_redcap_auto(self, request, *args, **kwargs):
+
+        result = auto_sync_redcap_records()
+        return Response(result, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        request=None,
+        responses=ExternalSyncLogSerializer(many=True),
+        description="Get the REDCap auto sync history logs.",
+    )
+    @action(detail=False, methods=["get"], url_path="sync-from-redcap/auto/history")
+    def sync_from_redcap_auto_history(self, request, *args, **kwargs):
+
+        logs = ExternalSyncLog.objects.filter(external_service="redcap").order_by(
+            "-imported_at"
+        )
+        page = self.paginate_queryset(logs)
+        serializer = ExternalSyncLogSerializer(page, many=True)
+        return self.get_paginated_response(serializer.data)
+
+    @extend_schema(
+        request=None,
         responses=CaseDetailSerializer,
         description="Sync a case from REDCap by its request form ID. Updates the case.",
     )
     @action(detail=True, methods=["post"], url_path="sync-from-redcap")
-    def sync_from_redcap(self, request, *args, **kwargs):
+    def sync_case_from_redcap(self, request, *args, **kwargs):
 
         pk = self.kwargs.get("pk")
         case_obj = get_object_or_404(self.queryset, pk=pk)
@@ -170,16 +213,16 @@ class CaseViewSet(BaseViewSetWithHistory, CaseLinkMixin):
 
     @extend_schema(
         responses=StateSerializer(many=True),
-        description="Retrieve all the states for a particular case",
+        description="Retrieve all the states for a particular case.",
     )
     @action(detail=True, methods=["get"], url_name="states", url_path="states")
     def retrieve_states(self, request, *args, **kwargs):
         pk = self.kwargs.get("pk")
 
         case_obj = get_object_or_404(self.queryset, pk=pk)
-        state_obj_arr = State.objects.filter(case=case_obj).order_by("-event_at").all()
+        states = State.objects.filter(case=case_obj).order_by("-event_at").all()
 
-        page = self.paginate_queryset(state_obj_arr)
+        page = self.paginate_queryset(states)
         serializer = StateSerializer(page, many=True)
 
         return self.get_paginated_response(serializer.data)
@@ -190,7 +233,7 @@ class CaseViewSet(BaseViewSetWithHistory, CaseLinkMixin):
         "models, such as states, comments, external entities, and linked users.",
     )
     @action(detail=True, methods=["get"], url_name="activity", url_path="activity")
-    def retrieve_timeline(self, request, *args, **kwargs):
+    def retrieve_activity(self, request, *args, **kwargs):
         pk = self.kwargs.get("pk")
         case_obj = get_object_or_404(self.queryset, pk=pk)
         entries = get_case_activity(case_obj)
