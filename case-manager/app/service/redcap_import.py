@@ -70,7 +70,7 @@ def _post(payload: dict) -> list[dict]:
 
 
 def get_redcap_record_by_date_range(
-        after_date: Optional[str] = None, before_date: Optional[str] = None
+    after_date: Optional[str] = None, before_date: Optional[str] = None
 ) -> list[dict]:
     """Fetch REDCap records within a given date range."""
     extra = {}
@@ -137,7 +137,7 @@ def upsert_case_from_redcap_record(record: dict[str, str]) -> Case:
 
 
 def upsert_redcap_records_by_date_range(
-        after_date: str, before_date: Optional[str] = None
+    after_date: str, before_date: Optional[str] = None
 ) -> dict:
     """Fetch records from REDCap by date range and upsert them into the Case model.
 
@@ -185,7 +185,7 @@ def auto_sync_redcap_records():
 
     # Get the current datetime minus 1 minute buffer
     current_datetime = (
-            datetime.now(timezone.utc) - timedelta(minutes=1)
+        datetime.now(timezone.utc) - timedelta(minutes=1)
     ).replace(  # buffer 1 minute to avoid race condition with new records
         second=0, microsecond=0
     )  # rundown to nearest 00
