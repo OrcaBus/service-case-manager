@@ -37,8 +37,9 @@ class CaseStudyType(models.TextChoices):
 
 
 class CaseType(models.TextChoices):
-    WGTS = "wgts", "WGTS"
-    CTTSO = "cttso", "ctTSO"
+    WGTS = "wgts", "WGTS_T-N"
+    CTTSO = "cttso", "ctTSO500"
+    WGS_N = "wgs_n", "WGS_N"
 
 
 class CaseManager(BaseManager):
@@ -113,7 +114,7 @@ class Case(BaseModel):
         choices=CaseType.choices,
         blank=False,
         null=False,
-        help_text="The type for this case e.g. WGTS, ctTSO",
+        help_text="The type for this case e.g. WGTS, ctTSO, WGS_N",
     )
     study_type = models.CharField(
         choices=CaseStudyType.choices,
