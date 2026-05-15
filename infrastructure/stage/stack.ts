@@ -14,6 +14,7 @@ import {
 } from '@orcabus/platform-cdk-constructs/shared-config/database';
 import { EventSchemaConstruct } from './construct/event-schema';
 import { LambdaRedCapImportConstruct } from './construct/lambda-redcap-import';
+import { LambdaMetadataEntityLinkConstruct } from './construct/lambda-metadata-linking';
 
 export type CaseManagerStackProps = {
   /**
@@ -49,7 +50,7 @@ export class CaseManagerStack extends Stack {
       vpc
     );
 
-    // despite of multiple lambda all of them will share the same dependencies
+    // Despite multiple Lambdas, all of them share the same dependencies.
     const dependencyLayer = new LayerVersion(this, 'DependenciesLayer', {
       code: Code.fromDockerBuild(__dirname + '/../../', {
         file: 'case-manager/deps/Dockerfile.lambda_layer',
@@ -107,5 +108,9 @@ export class CaseManagerStack extends Stack {
     });
 
     new EventSchemaConstruct(this, 'EventSchema');
+
+    new LambdaMetadataEntityLinkConstruct(this, 'LambdaMetadataEntityLink', {
+      basicLambdaConfig: basicLambdaConfig,
+    });
   }
 }
