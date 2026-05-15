@@ -70,7 +70,7 @@ def _post(payload: dict) -> list[dict]:
 
 
 def get_redcap_record_by_date_range(
-    after_date: Optional[str] = None, before_date: Optional[str] = None
+        after_date: Optional[str] = None, before_date: Optional[str] = None
 ) -> list[dict]:
     """Fetch REDCap records within a given date range."""
     extra = {}
@@ -95,7 +95,13 @@ def get_case_value(field_name: str, record: dict[str, str]) -> str:
             raise KeyError("Missing 'request_id' in REDCap record.")
         return record["request_id"]
     if field_name == "case_type":
-        redcap_case_type_mapping = {"1": "cttso", "2": "wgts"}
+        # ⚠️ MANUAL MAPPING — verify against REDCap `rf_test_requested` field before any schema changes.
+        # Last verified: 2026-05-15
+        redcap_case_type_mapping = {
+            "1": "cttso",  # ctTSO assay
+            "2": "wgts",  # WGTS assay
+            "3": "wgs_n",  # WGS Normal assay
+        }
         rf_val = record.get("rf_test_requested")
         if rf_val not in redcap_case_type_mapping:
             raise ValueError(f"Unknown rf_test_requested value: {rf_val}")
@@ -131,7 +137,7 @@ def upsert_case_from_redcap_record(record: dict[str, str]) -> Case:
 
 
 def upsert_redcap_records_by_date_range(
-    after_date: str, before_date: Optional[str] = None
+        after_date: str, before_date: Optional[str] = None
 ) -> dict:
     """Fetch records from REDCap by date range and upsert them into the Case model.
 
@@ -179,7 +185,7 @@ def auto_sync_redcap_records():
 
     # Get the current datetime minus 1 minute buffer
     current_datetime = (
-        datetime.now(timezone.utc) - timedelta(minutes=1)
+            datetime.now(timezone.utc) - timedelta(minutes=1)
     ).replace(  # buffer 1 minute to avoid race condition with new records
         second=0, microsecond=0
     )  # rundown to nearest 00
