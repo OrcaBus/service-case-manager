@@ -166,8 +166,14 @@ class RedcapAutoSyncViewSetTestCase(TestCase):
     """
 
     # Shared mock REDCap record payloads
-    REDCAP_RECORD_001 = {"request_id": CASE_REQUEST_FORM_ID_001, "rf_test_requested": "1"}
-    REDCAP_RECORD_002 = {"request_id": CASE_REQUEST_FORM_ID_002, "rf_test_requested": "2"}
+    REDCAP_RECORD_001 = {
+        "request_id": CASE_REQUEST_FORM_ID_001,
+        "rf_test_requested": "1",
+    }
+    REDCAP_RECORD_002 = {
+        "request_id": CASE_REQUEST_FORM_ID_002,
+        "rf_test_requested": "2",
+    }
 
     # ------------------------------------------------------------------ #
     # POST sync-from-redcap/auto                                           #
@@ -191,11 +197,15 @@ class RedcapAutoSyncViewSetTestCase(TestCase):
         self.assertEqual(response.data["failed"], 0)
 
         # A sync log entry must have been created
-        self.assertEqual(ExternalSyncLog.objects.filter(external_service="redcap").count(), 1)
+        self.assertEqual(
+            ExternalSyncLog.objects.filter(external_service="redcap").count(), 1
+        )
 
     @patch("app.service.redcap_import._get_redcap_token", return_value="fake-token")
     @patch("app.service.redcap_import._post")
-    def test_sync_from_redcap_auto_uses_last_sync_as_cursor(self, mock_post, _mock_token):
+    def test_sync_from_redcap_auto_uses_last_sync_as_cursor(
+        self, mock_post, _mock_token
+    ):
         """
         When a prior ExternalSyncLog exists, the auto-sync should start from
         that timestamp (cursor behaviour). A second log entry is appended.
@@ -213,7 +223,9 @@ class RedcapAutoSyncViewSetTestCase(TestCase):
         self.assertEqual(response.data["synced"], 1)
 
         # Two log entries now: the seed + the one created by this sync
-        self.assertEqual(ExternalSyncLog.objects.filter(external_service="redcap").count(), 2)
+        self.assertEqual(
+            ExternalSyncLog.objects.filter(external_service="redcap").count(), 2
+        )
 
     @patch("app.service.redcap_import._get_redcap_token", return_value="fake-token")
     @patch("app.service.redcap_import._post")
@@ -233,7 +245,9 @@ class RedcapAutoSyncViewSetTestCase(TestCase):
         self.assertEqual(response.data["synced"], 1)
         self.assertEqual(response.data["failed"], 1)
         # Sync log still written despite partial failure (atomic wraps the whole call)
-        self.assertEqual(ExternalSyncLog.objects.filter(external_service="redcap").count(), 1)
+        self.assertEqual(
+            ExternalSyncLog.objects.filter(external_service="redcap").count(), 1
+        )
 
     @patch("app.service.redcap_import._get_redcap_token", return_value="fake-token")
     @patch("app.service.redcap_import._post")
@@ -251,4 +265,6 @@ class RedcapAutoSyncViewSetTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["synced"], 0)
         self.assertEqual(response.data["failed"], 0)
-        self.assertEqual(ExternalSyncLog.objects.filter(external_service="redcap").count(), 1)
+        self.assertEqual(
+            ExternalSyncLog.objects.filter(external_service="redcap").count(), 1
+        )
