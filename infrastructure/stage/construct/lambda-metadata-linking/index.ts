@@ -9,9 +9,8 @@ import { EVENT_BUS_NAME } from '@orcabus/platform-cdk-constructs/shared-config/e
 import { Secret } from 'aws-cdk-lib/aws-secretsmanager';
 import { JWT_SECRET_NAME } from '@orcabus/platform-cdk-constructs/shared-config/secrets';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
-export const REDCAP_TOKEN_PARAMETER_NAME = '/orcabus/case-manager/redcap/redcap-api-token';
 
-type RedCapLambdaProps = {
+type MetadataEntityLinkLambdaProps = {
   /**
    * The basic common lambda properties that it should inherit from
    */
@@ -19,12 +18,11 @@ type RedCapLambdaProps = {
 };
 
 /**
- * The lambda that triggered by the event bridge rule in interval
- * The setup is triggered daily on roughly every midnight (10.59pm AEST or 11.59pm AEDT)
+ * Lambda triggered by EventBridge on MetadataStateChange events from orcabus.metadatamanager
  */
 export class LambdaMetadataEntityLinkConstruct extends Construct {
   readonly lambda: PythonFunction;
-  constructor(scope: Construct, id: string, props: RedCapLambdaProps) {
+  constructor(scope: Construct, id: string, props: MetadataEntityLinkLambdaProps) {
     super(scope, id);
 
     this.lambda = new PythonFunction(this, 'CaseMetadataLinkLambda', {
@@ -60,16 +58,16 @@ export class LambdaMetadataEntityLinkConstruct extends Construct {
     this.lambda.addEnvironment('EVENT_BUS_NAME', EVENT_BUS_NAME);
 
     // Add EventBridge rule to trigger Lambda on MetadataStateChange events from orcabus.metadatamanager
-    const redCapLambdaEventTarget = new LambdaFunction(this.lambda);
-    new Rule(this, 'RedCapLambdaTriggerOnMetadataStateChange', {
+    const metadataLinkLambdaEventTarget = new LambdaFunction(this.lambda);
+    new Rule(this, 'MetadataEntityLinkLambdaRule', {
       eventBus: orcabusEventBus,
       description:
-        'Rule to trigger Lambda on MetadataStateChange events from orcabus.metadatamanager',
+        'Rule to trigger Lambda on MetadataStateChange events from orcabus.metadatamanager to link with cases',
       eventPattern: {
         source: ['orcabus.metadatamanager'],
         detailType: ['MetadataStateChange'],
       },
-      targets: [redCapLambdaEventTarget],
+      targets: [metadataLinkLambdaEventTarget],
     });
   }
 }
