@@ -95,17 +95,13 @@ def get_case_value(field_name: str, record: dict[str, str]) -> str:
             raise KeyError("Missing 'request_id' in REDCap record.")
         return record["request_id"]
     if field_name == "case_type":
-        # ⚠️ MANUAL MAPPING — verify against REDCap `rf_test_requested` field before any schema changes.
-        # Last verified: 2026-05-15
-        redcap_case_type_mapping = {
-            "1": "cttso",  # ctTSO assay
-            "2": "wgts",  # WGTS assay
-            "3": "wgs_n",  # WGS Normal assay
-        }
         rf_val = record.get("rf_test_requested")
-        if rf_val not in redcap_case_type_mapping:
+        if rf_val is None:
+            raise KeyError("Missing 'rf_test_requested' in REDCap record.")
+        accepted_values = [c[0] for c in Case.type.field.choices]
+        if rf_val not in accepted_values:
             raise ValueError(f"Unknown rf_test_requested value: {rf_val}")
-        return redcap_case_type_mapping[rf_val]
+        return rf_val
     raise Exception(f"Unknown field {field_name}")
 
 

@@ -114,7 +114,7 @@ class Case(BaseModel):
         choices=CaseType.choices,
         blank=False,
         null=False,
-        help_text="The type for this case e.g. WGTS, ctTSO, WGS_N",
+        help_text=f"The type for this case. One of: {', '.join(c[0] for c in CaseType.choices)}",
     )
     study_type = models.CharField(
         choices=CaseStudyType.choices,
