@@ -5,3 +5,4 @@ from .comment import Comment
 from .external_entity import ExternalEntity
 from .state import State
 from .user import User
+from .external_sync_log import ExternalSyncLog

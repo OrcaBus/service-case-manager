@@ -54,7 +54,7 @@ mock: reset-db migrate
 	@uv run python manage.py insert_mock
 
 suite:
-	@uv run python manage.py test --parallel
+	@uv run python manage.py test
 
 coverage:
 	@uv run coverage run manage.py test

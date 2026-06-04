@@ -1,14 +1,19 @@
 import json
 import logging
+from datetime import datetime, timezone, timedelta
+from unittest.mock import patch, MagicMock
 
 from django.test import TestCase
 
-from app.models import CaseExternalEntityLink, CaseUserLink
+from app.models import CaseExternalEntityLink, CaseUserLink, ExternalSyncLog
 from app.tests.factories import (
     UserFactory,
     USER_002,
     INDIVIDUAL_001,
     ExternalEntityFactory,
+    CaseFactory,
+    CASE_REQUEST_FORM_ID_001,
+    CASE_REQUEST_FORM_ID_002,
 )
 from app.tests.utils import insert_fixture_1
 
@@ -150,4 +155,116 @@ class ViewSetTestCase(TestCase):
         case.refresh_from_db()
         self.assertEqual(
             case.external_entity_set.filter(orcabus_id=idv_1.orcabus_id).count(), 0
+        )
+
+
+class RedcapAutoSyncViewSetTestCase(TestCase):
+    """
+    Tests for the REDCap auto-sync endpoints:
+      POST /api/v1/case/sync-from-redcap/auto
+      GET  /api/v1/case/sync-from-redcap/auto/history
+    """
+
+    # Shared mock REDCap record payloads
+    REDCAP_RECORD_001 = {
+        "request_id": CASE_REQUEST_FORM_ID_001,
+        "rf_test_requested": "cttso",
+    }
+    REDCAP_RECORD_002 = {
+        "request_id": CASE_REQUEST_FORM_ID_002,
+        "rf_test_requested": "wgts",
+    }
+
+    # ------------------------------------------------------------------ #
+    # POST sync-from-redcap/auto                                           #
+    # ------------------------------------------------------------------ #
+
+    @patch("app.service.redcap_import._get_redcap_token", return_value="fake-token")
+    @patch("app.service.redcap_import._post")
+    def test_sync_from_redcap_auto_creates_cases(self, mock_post, _mock_token):
+        """
+        POST sync-from-redcap/auto with no prior sync log (full range) should
+        call REDCap, create cases, and return synced/failed counts.
+
+        python manage.py test app.tests.test_viewsets.RedcapAutoSyncViewSetTestCase.test_sync_from_redcap_auto_creates_cases
+        """
+        mock_post.return_value = [self.REDCAP_RECORD_001, self.REDCAP_RECORD_002]
+
+        response = self.client.post(f"/{CASE_BASE_PATH}/sync-from-redcap/auto")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["synced"], 2)
+        self.assertEqual(response.data["failed"], 0)
+
+        # A sync log entry must have been created
+        self.assertEqual(
+            ExternalSyncLog.objects.filter(external_service="redcap").count(), 1
+        )
+
+    @patch("app.service.redcap_import._get_redcap_token", return_value="fake-token")
+    @patch("app.service.redcap_import._post")
+    def test_sync_from_redcap_auto_uses_last_sync_as_cursor(
+        self, mock_post, _mock_token
+    ):
+        """
+        When a prior ExternalSyncLog exists, the auto-sync should start from
+        that timestamp (cursor behaviour). A second log entry is appended.
+
+        python manage.py test app.tests.test_viewsets.RedcapAutoSyncViewSetTestCase.test_sync_from_redcap_auto_uses_last_sync_as_cursor
+        """
+        prior_ts = datetime.now(timezone.utc) - timedelta(hours=2)
+        ExternalSyncLog.objects.create(external_service="redcap", imported_at=prior_ts)
+
+        mock_post.return_value = [self.REDCAP_RECORD_001]
+
+        response = self.client.post(f"/{CASE_BASE_PATH}/sync-from-redcap/auto")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["synced"], 1)
+
+        # Two log entries now: the seed + the one created by this sync
+        self.assertEqual(
+            ExternalSyncLog.objects.filter(external_service="redcap").count(), 2
+        )
+
+    @patch("app.service.redcap_import._get_redcap_token", return_value="fake-token")
+    @patch("app.service.redcap_import._post")
+    def test_sync_from_redcap_auto_partial_failure(self, mock_post, _mock_token):
+        """
+        Records that fail mapping (unknown rf_test_requested) are counted as
+        failed without aborting the batch. The sync log is still written.
+
+        python manage.py test app.tests.test_viewsets.RedcapAutoSyncViewSetTestCase.test_sync_from_redcap_auto_partial_failure
+        """
+        bad_record = {"request_id": "case-bad", "rf_test_requested": "99"}
+        mock_post.return_value = [self.REDCAP_RECORD_001, bad_record]
+
+        response = self.client.post(f"/{CASE_BASE_PATH}/sync-from-redcap/auto")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["synced"], 1)
+        self.assertEqual(response.data["failed"], 1)
+        # Sync log still written despite partial failure (atomic wraps the whole call)
+        self.assertEqual(
+            ExternalSyncLog.objects.filter(external_service="redcap").count(), 1
+        )
+
+    @patch("app.service.redcap_import._get_redcap_token", return_value="fake-token")
+    @patch("app.service.redcap_import._post")
+    def test_sync_from_redcap_auto_empty_redcap_response(self, mock_post, _mock_token):
+        """
+        When REDCap returns no records the endpoint should still return 200
+        with synced=0 and write a sync log.
+
+        python manage.py test app.tests.test_viewsets.RedcapAutoSyncViewSetTestCase.test_sync_from_redcap_auto_empty_redcap_response
+        """
+        mock_post.return_value = []
+
+        response = self.client.post(f"/{CASE_BASE_PATH}/sync-from-redcap/auto")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["synced"], 0)
+        self.assertEqual(response.data["failed"], 0)
+        self.assertEqual(
+            ExternalSyncLog.objects.filter(external_service="redcap").count(), 1
         )
