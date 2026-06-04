@@ -168,11 +168,11 @@ class RedcapAutoSyncViewSetTestCase(TestCase):
     # Shared mock REDCap record payloads
     REDCAP_RECORD_001 = {
         "request_id": CASE_REQUEST_FORM_ID_001,
-        "rf_test_requested": "1",
+        "rf_test_requested": "cttso",
     }
     REDCAP_RECORD_002 = {
         "request_id": CASE_REQUEST_FORM_ID_002,
-        "rf_test_requested": "2",
+        "rf_test_requested": "wgts",
     }
 
     # ------------------------------------------------------------------ #
