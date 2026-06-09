@@ -3,12 +3,14 @@ import { PythonFunction, PythonFunctionProps } from '@aws-cdk/aws-lambda-python-
 import { Duration } from 'aws-cdk-lib';
 import { ManagedPolicy } from 'aws-cdk-lib/aws-iam';
 import { formatRdsPolicyName } from '@orcabus/platform-cdk-constructs/shared-config/database';
-import { LambdaFunction } from 'aws-cdk-lib/aws-events-targets';
+import { SqsQueue } from 'aws-cdk-lib/aws-events-targets';
 import { EventBus, Rule } from 'aws-cdk-lib/aws-events';
 import { EVENT_BUS_NAME } from '@orcabus/platform-cdk-constructs/shared-config/event-bridge';
 import { Secret } from 'aws-cdk-lib/aws-secretsmanager';
 import { JWT_SECRET_NAME } from '@orcabus/platform-cdk-constructs/shared-config/secrets';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
+import { Queue, QueueEncryption } from 'aws-cdk-lib/aws-sqs';
+import { SqsEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 
 type MetadataEntityLinkLambdaProps = {
   /**
@@ -57,17 +59,49 @@ export class LambdaMetadataEntityLinkConstruct extends Construct {
     orcabusEventBus.grantPutEventsTo(this.lambda);
     this.lambda.addEnvironment('EVENT_BUS_NAME', EVENT_BUS_NAME);
 
-    // Add EventBridge rule to trigger Lambda on MetadataStateChange events from orcabus.metadatamanager
-    const metadataLinkLambdaEventTarget = new LambdaFunction(this.lambda);
-    new Rule(this, 'MetadataEntityLinkLambdaRule', {
+    // Dead-letter queue: receives messages that fail after maxReceiveCount attempts
+    const metadataLinkDlq = new Queue(this, 'MetadataEntityLinkDlq', {
+      queueName: 'CaseManagerMetadataEntityLinkDlq',
+      encryption: QueueEncryption.SQS_MANAGED,
+      retentionPeriod: Duration.days(14),
+    });
+
+    // Main queue: EventBridge delivers events here; Lambda polls via event source mapping.
+    // visibilityTimeout must be >= Lambda timeout (15 min) to prevent redelivery mid-execution.
+    const metadataLinkQueue = new Queue(this, 'MetadataEntityLinkQueue', {
+      queueName: 'CaseManagerMetadataEntityLinkQueue',
+      encryption: QueueEncryption.SQS_MANAGED,
+      visibilityTimeout: Duration.minutes(15),
+      retentionPeriod: Duration.days(14),
+      deadLetterQueue: {
+        queue: metadataLinkDlq,
+        // On ObjectDoesNotExist the Lambda extends visibility to ~11h 45min then raises,
+        // so 3 attempts = at least 24 hour retries before giving up (daily REDCap should already sync at least once).
+        maxReceiveCount: 3,
+      },
+    });
+
+    // Grant Lambda permission to extend message visibility (used for 12h retry on case-not-found)
+    metadataLinkQueue.grantConsumeMessages(this.lambda);
+    this.lambda.addEnvironment('METADATA_MANAGER_LINKING_QUEUE_URL', metadataLinkQueue.queueUrl);
+
+    // Event source mapping: SQS invokes Lambda per message (batchSize=1 for independent processing)
+    this.lambda.addEventSource(
+      new SqsEventSource(metadataLinkQueue, {
+        batchSize: 1,
+      })
+    );
+
+    // EventBridge rule: deliver MetadataStateChange events into SQS
+    new Rule(this, 'MetadataEntityLinkEventRule', {
       eventBus: orcabusEventBus,
       description:
-        'Rule to trigger Lambda on MetadataStateChange events from orcabus.metadatamanager to link with cases',
+        'Deliver MetadataStateChange events from orcabus.metadatamanager into SQS for Lambda processing',
       eventPattern: {
         source: ['orcabus.metadatamanager'],
         detailType: ['MetadataStateChange'],
       },
-      targets: [metadataLinkLambdaEventTarget],
+      targets: [new SqsQueue(metadataLinkQueue)],
     });
   }
 }
