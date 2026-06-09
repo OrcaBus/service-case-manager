@@ -41,7 +41,9 @@ def process_record(body: dict) -> None:
         )
         return
 
-    case = Case.objects.get(request_form_id=request_form_id)  # raises ObjectDoesNotExist
+    case = Case.objects.get(
+        request_form_id=request_form_id
+    )  # raises ObjectDoesNotExist
 
     external_entity = get_or_create_external_entity(library_orcabus_id)
 
@@ -49,7 +51,9 @@ def process_record(body: dict) -> None:
         link = link_case_to_external_entity_and_emit(
             case, external_entity, history_user="system"
         )
-        logger.info(f"Successfully linked '{library_orcabus_id}' to case '{case.orcabus_id}'")
+        logger.info(
+            f"Successfully linked '{library_orcabus_id}' to case '{case.orcabus_id}'"
+        )
         logger.info(f"Link data: {CaseExternalEntityLinkCreateSerializer(link).data}")
     except IntegrityError:
         logger.warning(

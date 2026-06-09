@@ -4,8 +4,10 @@ import os
 from unittest.mock import patch, MagicMock
 
 # Must be set before handler module is imported (module-level code runs on import)
-os.environ.setdefault("METADATA_MANAGER_LINKING_QUEUE_URL",
-                      "https://sqs.ap-southeast-2.amazonaws.com/123456789/test-queue")
+os.environ.setdefault(
+    "METADATA_MANAGER_LINKING_QUEUE_URL",
+    "https://sqs.ap-southeast-2.amazonaws.com/123456789/test-queue",
+)
 os.environ.setdefault("AWS_DEFAULT_REGION", "ap-southeast-2")
 os.environ.setdefault("AWS_ACCESS_KEY_ID", "testing")
 os.environ.setdefault("AWS_SECRET_ACCESS_KEY", "testing")
@@ -88,7 +90,10 @@ class MetadataManagerLinkingHandlerTest(TestCase):
     # ------------------------------------------------------------------
 
     def test_case_not_found_extends_visibility_and_raises(self, mock_sqs):
-        from handler.metadata_manager_linking import handler, VISIBILITY_TIMEOUT_RETRY_SECONDS
+        from handler.metadata_manager_linking import (
+            handler,
+            VISIBILITY_TIMEOUT_RETRY_SECONDS,
+        )
 
         data = {**VALID_DATA, "requestFormId": "nonexistent-form-id"}
 
@@ -120,7 +125,9 @@ class MetadataManagerLinkingHandlerTest(TestCase):
     def test_malformed_body_skips_silently(self, mock_sqs):
         from handler.metadata_manager_linking import handler
 
-        event = {"Records": [{"messageId": "bad", "receiptHandle": "h", "body": "NOT JSON"}]}
+        event = {
+            "Records": [{"messageId": "bad", "receiptHandle": "h", "body": "NOT JSON"}]
+        }
         handler(event, {})  # should not raise
 
     # ------------------------------------------------------------------
@@ -130,10 +137,12 @@ class MetadataManagerLinkingHandlerTest(TestCase):
     def test_multiple_records_raises(self, mock_sqs):
         from handler.metadata_manager_linking import handler
 
-        event = {"Records": [
-            {"messageId": "a", "receiptHandle": "h1", "body": "{}"},
-            {"messageId": "b", "receiptHandle": "h2", "body": "{}"},
-        ]}
+        event = {
+            "Records": [
+                {"messageId": "a", "receiptHandle": "h1", "body": "{}"},
+                {"messageId": "b", "receiptHandle": "h2", "body": "{}"},
+            ]
+        }
         with self.assertRaises(ValueError):
             handler(event, {})
 
