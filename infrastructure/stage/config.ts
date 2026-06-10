@@ -7,8 +7,6 @@ import {
 } from '@orcabus/platform-cdk-constructs/shared-config/networking';
 
 export const getStackProps = (stage: StageName): CaseManagerStackProps => {
-  const isDailySyncRedCap = stage == 'BETA' ? true : false;
-
   return {
     vpcProps: VPC_LOOKUP_PROPS,
     lambdaSecurityGroupName: SHARED_SECURITY_GROUP_NAME,
@@ -17,6 +15,7 @@ export const getStackProps = (stage: StageName): CaseManagerStackProps => {
       apiName: 'CaseManager',
       customDomainNamePrefix: 'case',
     },
-    isDailySyncRedCap,
+    // Daily sync on every account stage
+    isDailySyncRedCap: true,
   };
 };
