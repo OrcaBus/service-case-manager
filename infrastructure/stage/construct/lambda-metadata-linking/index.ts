@@ -63,6 +63,7 @@ export class LambdaMetadataEntityLinkConstruct extends Construct {
     const metadataLinkDlq = new Queue(this, 'MetadataEntityLinkDlq', {
       queueName: 'CaseManagerMetadataEntityLinkDlq',
       encryption: QueueEncryption.SQS_MANAGED,
+      enforceSSL: true,
       retentionPeriod: Duration.days(14),
     });
 
@@ -71,6 +72,7 @@ export class LambdaMetadataEntityLinkConstruct extends Construct {
     const metadataLinkQueue = new Queue(this, 'MetadataEntityLinkQueue', {
       queueName: 'CaseManagerMetadataEntityLinkQueue',
       encryption: QueueEncryption.SQS_MANAGED,
+      enforceSSL: true,
       visibilityTimeout: Duration.minutes(15),
       retentionPeriod: Duration.days(14),
       deadLetterQueue: {

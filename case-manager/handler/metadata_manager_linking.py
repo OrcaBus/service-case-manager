@@ -18,7 +18,7 @@ from app.serializers.case import CaseExternalEntityLinkCreateSerializer
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-QUEUE_URL = os.environ["METADATA_MANAGER_LINKING_QUEUE_URL"]
+QUEUE_URL = os.environ.get("METADATA_MANAGER_LINKING_QUEUE_URL")
 # SQS enforces a hard 43200s (12h) ceiling on total visibility timeout measured from
 # first receipt, not from the ChangeMessageVisibility call. Subtracting the Lambda
 # timeout (15 min = 900s) ensures we never breach the limit regardless of when during
@@ -68,8 +68,8 @@ def handler(event, context):
     Flow:
     - EventBridge delivers MetadataStateChange events → SQS queue → this Lambda.
     - Success / already linked / invalid message: returns normally → SQS auto-deletes.
-    - ObjectDoesNotExist (case not ready yet): extends visibility to 12h then raises →
-      SQS keeps the message and redelivers after 12h. After 4 attempts → DLQ.
+    - ObjectDoesNotExist (case not ready yet): extends visibility to ~11h45m then raises →
+        SQS keeps the message and redelivers later. After maxReceiveCount failures → DLQ.
     - Unexpected errors: raises → SQS retries via default policy, then DLQ.
     """
     records = event.get("Records", [])
@@ -101,8 +101,13 @@ def handler(event, context):
 
         except ObjectDoesNotExist:
             logger.warning(
-                f"[{message_id}] Case not found yet — extending visibility to 12h for retry"
+                f"[{message_id}] Case not found yet — extending visibility to {VISIBILITY_TIMEOUT_RETRY_SECONDS}s for "
+                f"retry"
             )
+            if not QUEUE_URL:
+                raise RuntimeError(
+                    "METADATA_MANAGER_LINKING_QUEUE_URL environment variable is not set"
+                )
             sqs.change_message_visibility(
                 QueueUrl=QUEUE_URL,
                 ReceiptHandle=receipt_handle,
