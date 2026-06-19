@@ -15,7 +15,12 @@ os.environ.setdefault("AWS_SECRET_ACCESS_KEY", "testing")
 from django.core.exceptions import ObjectDoesNotExist
 from django.test import TestCase
 
-from app.tests.factories import CaseFactory, CASE_REQUEST_FORM_ID_001
+from app.models import ExternalEntity, PendingExternalEntity, CaseExternalEntityLink
+from app.tests.factories import (
+    CaseFactory,
+    ExternalEntityFactory,
+    CASE_REQUEST_FORM_ID_001,
+)
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -158,3 +163,133 @@ class MetadataManagerLinkingHandlerTest(TestCase):
 
         with self.assertRaises(RuntimeError):
             handler(make_sqs_event(VALID_DATA), {})
+
+
+SAMPLE_BASED_DATA = {
+    "orcabusId": "lib.00000000000000000000000001",
+    "libraryId": "LIB001",
+    "sample": {
+        "orcabusId": "smp.00000000000000000000SMP001",
+        "sampleId": "SMP001",
+    },
+    # no requestFormId
+}
+
+
+@patch("handler.metadata_manager_linking.sqs")
+class SampleBasedLinkingTest(TestCase):
+    """
+    Tests for the sample-based linking fallback path (no requestFormId).
+
+    python manage.py test app.tests.test_handler_metadata_manager_linking.SampleBasedLinkingTest
+    """
+
+    def setUp(self):
+        self.case = CaseFactory(request_form_id=CASE_REQUEST_FORM_ID_001)
+
+    # ------------------------------------------------------------------
+    # PendingExternalEntity → promoted and linked
+    # ------------------------------------------------------------------
+
+    def test_pending_sample_is_promoted_and_library_linked(self, mock_sqs):
+        """
+        A PendingExternalEntity for the sample should be promoted to a real
+        ExternalEntity, the sample linked to the case, the pending record
+        deleted, and the library upserted and linked to the same case.
+        """
+        from handler.metadata_manager_linking import handler
+
+        PendingExternalEntity.objects.create(
+            case=self.case,
+            alias="SMP001",
+            type="sample",
+            service_name="metadata",
+        )
+
+        handler(make_sqs_event(SAMPLE_BASED_DATA), {})
+
+        # PendingExternalEntity must be gone
+        self.assertFalse(PendingExternalEntity.objects.filter(alias="SMP001").exists())
+
+        # Sample ExternalEntity must exist
+        sample_entity = ExternalEntity.objects.get(
+            orcabus_id="smp.00000000000000000000SMP001"
+        )
+        self.assertEqual(sample_entity.alias, "SMP001")
+        self.assertEqual(sample_entity.type, "sample")
+        self.assertEqual(sample_entity.service_name, "metadata")
+
+        # Library ExternalEntity must exist
+        lib_entity = ExternalEntity.objects.get(
+            orcabus_id="lib.00000000000000000000000001"
+        )
+        self.assertEqual(lib_entity.alias, "LIB001")
+        self.assertEqual(lib_entity.type, "library")
+
+        # Both must be linked to the case
+        self.assertTrue(
+            CaseExternalEntityLink.objects.filter(
+                case=self.case, external_entity=sample_entity
+            ).exists()
+        )
+        self.assertTrue(
+            CaseExternalEntityLink.objects.filter(
+                case=self.case, external_entity=lib_entity
+            ).exists()
+        )
+
+        mock_sqs.change_message_visibility.assert_not_called()
+
+    # ------------------------------------------------------------------
+    # ExternalEntity already resolved → only library linked
+    # ------------------------------------------------------------------
+
+    def test_resolved_sample_entity_links_library(self, mock_sqs):
+        """
+        When sample.sampleId is already in ExternalEntity (linked to a case),
+        the handler should upsert the library entity and link it to the same case.
+        """
+        from handler.metadata_manager_linking import handler
+
+        sample_entity = ExternalEntity.objects.create(
+            orcabus_id="smp.00000000000000000000SMP001",
+            alias="SMP001",
+            type="sample",
+            service_name="metadata",
+            prefix="smp",
+        )
+        CaseExternalEntityLink.objects.create(
+            case=self.case, external_entity=sample_entity
+        )
+
+        handler(make_sqs_event(SAMPLE_BASED_DATA), {})
+
+        lib_entity = ExternalEntity.objects.get(
+            orcabus_id="lib.00000000000000000000000001"
+        )
+        self.assertTrue(
+            CaseExternalEntityLink.objects.filter(
+                case=self.case, external_entity=lib_entity
+            ).exists()
+        )
+        mock_sqs.change_message_visibility.assert_not_called()
+
+    # ------------------------------------------------------------------
+    # Skip / retry cases
+    # ------------------------------------------------------------------
+
+    def test_sample_not_found_extends_visibility_and_raises(self, mock_sqs):
+        """No match in ExternalEntity or PendingExternalEntity → SQS retry."""
+        from handler.metadata_manager_linking import (
+            handler,
+            VISIBILITY_TIMEOUT_RETRY_SECONDS,
+        )
+
+        with self.assertRaises(ObjectDoesNotExist):
+            handler(make_sqs_event(SAMPLE_BASED_DATA), {})
+
+        mock_sqs.change_message_visibility.assert_called_once_with(
+            QueueUrl="https://sqs.ap-southeast-2.amazonaws.com/123456789/test-queue",
+            ReceiptHandle="fake-receipt-handle",
+            VisibilityTimeout=VISIBILITY_TIMEOUT_RETRY_SECONDS,
+        )

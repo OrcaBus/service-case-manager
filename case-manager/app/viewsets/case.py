@@ -1,3 +1,5 @@
+import logging
+
 from drf_spectacular.utils import extend_schema
 from rest_framework import serializers
 from rest_framework.decorators import action
@@ -33,12 +35,16 @@ from ..service.redcap_import import (
     upsert_case_from_redcap_record,
     upsert_redcap_records_by_date_range,
     auto_sync_redcap_records,
+    resolve_sample_links_from_redcap_record,
 )
 
 
 class RedcapDateRangeSyncSerializer(serializers.Serializer):
     after_date = serializers.DateField()
     before_date = serializers.DateField(required=False, allow_null=True, default=None)
+
+
+logger = logging.getLogger(__name__)
 
 
 class CaseLinkMixin:
@@ -182,6 +188,14 @@ class CaseViewSet(BaseViewSetWithHistory, CaseLinkMixin):
                 status=status.HTTP_404_NOT_FOUND,
             )
         case = upsert_case_from_redcap_record(records[0])
+        try:
+            resolve_sample_links_from_redcap_record(case, records[0])
+        except Exception as exc:
+            logger.error(
+                "Failed to sync pending entities for case %s: %s",
+                case.request_form_id,
+                exc,
+            )
         return Response(CaseDetailSerializer(case).data, status=status.HTTP_200_OK)
 
     @extend_schema(
