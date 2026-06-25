@@ -1,7 +1,7 @@
 import logging
 from unittest.mock import patch, MagicMock
 
-from django.core.exceptions import ValidationError as DjangoValidationError
+from rest_framework.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError
 from django.http import Http404
 from django.test import TestCase

@@ -6,7 +6,7 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "app.settings.base")
 django.setup()
 
 from django.db import IntegrityError
-from django.core.exceptions import ValidationError
+from rest_framework.exceptions import ValidationError
 
 from app.service.external_entity import get_or_create_external_entity
 from app.service.case import link_case_to_external_entity_and_emit
@@ -91,7 +91,7 @@ def handler(event, context):
         # Case is locked / completed / archived — blocked at the model level.
         # Log a warning and return cleanly; no retry needed.
         logger.warning(
-            f"Skipping workflow run link for '{workflow_run_orcabus_id}': {e.message}"
+            f"Skipping workflow run link for '{workflow_run_orcabus_id}': {e.detail}"
         )
 
     except IntegrityError:
