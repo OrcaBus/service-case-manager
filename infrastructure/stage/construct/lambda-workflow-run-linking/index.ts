@@ -65,7 +65,7 @@ export class LambdaWorkflowRunEntityLinkConstruct extends Construct {
       eventPattern: {
         detailType: ['WorkflowRunStateChange'],
         detail: {
-          status: ['DRAFT'],
+          status: ['READY'],
         },
       },
       targets: [workflowRunLinkLambdaEventTarget],
