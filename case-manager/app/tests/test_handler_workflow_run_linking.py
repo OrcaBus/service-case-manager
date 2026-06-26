@@ -26,8 +26,8 @@ CASE_REQUEST_FORM_ID = "case-test-wfr-001"
 
 
 def make_event(
-        workflow_run_orcabus_id: str = WORKFLOW_RUN_ORCABUS_ID,
-        libraries: list | None = None,
+    workflow_run_orcabus_id: str = WORKFLOW_RUN_ORCABUS_ID,
+    libraries: list | None = None,
 ) -> dict:
     """Build a minimal WorkflowRunStateChange EventBridge event."""
     if libraries is None:
@@ -103,7 +103,7 @@ class WorkflowRunLinkingHandlerTest(TestCase):
     @patch("handler.workflow_run_linking.get_or_create_external_entity")
     @patch("handler.workflow_run_linking.link_case_to_external_entity_and_emit")
     def test_matches_second_library_when_first_not_linked(
-            self, mock_link, mock_get_entity
+        self, mock_link, mock_get_entity
     ):
         """Falls through to the second library if the first has no linked case."""
         from handler.workflow_run_linking import handler

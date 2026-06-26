@@ -69,7 +69,7 @@ class CaseDetailSerializer(ModelSerializer):
     def get_latest_state(self, obj):
         from .state import StateSerializer
 
-        state = obj.state_set.order_by("-event_at").first()
+        state = obj.state_set.filter(is_archived=False).order_by("-event_at").first()
         if state:
             return StateSerializer(state).data
         return None
