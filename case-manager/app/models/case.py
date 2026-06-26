@@ -1,12 +1,13 @@
-from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
 from django.db import models
+from rest_framework.exceptions import ValidationError
 
 from django.db.models.signals import m2m_changed
 from django.dispatch import receiver
 
 from app.fields import OrcaBusIdField
 from app.models.base import BaseModel, BaseManager, BaseHistoricalRecords
+from app.models.state import CaseStatus
 
 
 def validate_urls_dict(value):
@@ -75,9 +76,24 @@ class CaseUserLink(models.Model):
 
 class CaseExternalEntityLink(models.Model):
     """
-    This is just a many-many link between Case and ExternalEntity. Creating this model allows to override the 'db_column'
-    field for foreign keys that makes it less confusion between the 'case_id' and 'orcabus_id' in the schema.
+    Many-to-many link between Case and ExternalEntity.
+
+    Linking is **blocked** when the case's current status is one of
+    ``BLOCKED_LINK_STATUSES`` (locked, completed, or archived).  These statuses
+    signal that the case is either under review or fully closed; attaching new
+    external entities at that point would silently corrupt the audit trail.
+
+    To allow linking again, the case must be transitioned out of the blocked
+    state (e.g. unlocked → back to an active status).  This guard is enforced at
+    the model level so that *all* code paths — API viewsets, Lambda handlers, and
+    management commands — respect the same rule.
     """
+
+    # Statuses that prevent new external-entity links from being created.
+    # To re-allow linking, the case must be transitioned out of one of these states.
+    BLOCKED_LINK_STATUSES = frozenset(
+        {CaseStatus.LOCKED, CaseStatus.COMPLETED, CaseStatus.ARCHIVED}
+    )
 
     case = models.ForeignKey(
         "Case", on_delete=models.CASCADE, db_column="case_orcabus_id"
@@ -95,6 +111,30 @@ class CaseExternalEntityLink(models.Model):
 
     class Meta:
         unique_together = ["case", "external_entity"]
+
+    def _assert_case_not_blocked(self) -> None:
+        """Raise ValidationError if the case is in a state that blocks link modifications."""
+        from app.models.state import State
+
+        current_state = (
+            State.objects.filter(case=self.case, is_archived=False)
+            .order_by("-created_at")
+            .first()
+        )
+        if current_state and current_state.status in self.BLOCKED_LINK_STATUSES:
+            raise ValidationError(
+                f"Cannot modify an external entity link on case '{self.case_id}': "
+                f"the case is currently '{current_state.status}'. "
+                f"Transition the case out of this state before modifying links."
+            )
+
+    def save(self, *args, **kwargs):
+        self._assert_case_not_blocked()
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        self._assert_case_not_blocked()
+        super().delete(*args, **kwargs)
 
 
 class Case(BaseModel):
