@@ -19,7 +19,7 @@ logger.setLevel(logging.INFO)
 
 def handler(event, context):
     """
-    Lambda handler that links a workflow run to a case via EventBridge WorkflowRunUpdate event.
+    Lambda handler that links a workflow run to a case via EventBridge WorkflowRunStateChange event.
 
     The handler inspects the libraries attached to the workflow run and looks for a case
     that already has one of those libraries linked as an external entity. If found, the

@@ -26,17 +26,17 @@ CASE_REQUEST_FORM_ID = "case-test-wfr-001"
 
 
 def make_event(
-    workflow_run_orcabus_id: str = WORKFLOW_RUN_ORCABUS_ID,
-    libraries: list | None = None,
+        workflow_run_orcabus_id: str = WORKFLOW_RUN_ORCABUS_ID,
+        libraries: list | None = None,
 ) -> dict:
-    """Build a minimal WorkflowRunUpdate EventBridge event."""
+    """Build a minimal WorkflowRunStateChange EventBridge event."""
     if libraries is None:
         libraries = [
             {"libraryId": LIBRARY_ID_1, "orcabusId": LIBRARY_ORCABUS_ID_1},
             {"libraryId": LIBRARY_ID_2, "orcabusId": LIBRARY_ORCABUS_ID_2},
         ]
     return {
-        "detail-type": "WorkflowRunUpdate",
+        "detail-type": "WorkflowRunStateChange",
         "source": "orcabus.sash",
         "detail": {
             "orcabusId": workflow_run_orcabus_id,
@@ -44,11 +44,31 @@ def make_event(
         },
     }
 
+    def _create_wfr_entity(self):
+        obj, _ = ExternalEntity.objects.get_or_create(
+            orcabus_id=WORKFLOW_RUN_ORCABUS_ID,
+            prefix="wfr",
+            type="workflow_run",
+            service_name="workflow",
+            alias="portal-test-run-001",
+        )
+        return obj
+
 
 class WorkflowRunLinkingHandlerTest(TestCase):
     """
     python manage.py test app.tests.test_handler_workflow_run_linking
     """
+
+    def _create_wfr_entity(self):
+        obj, _ = ExternalEntity.objects.get_or_create(
+            orcabus_id=WORKFLOW_RUN_ORCABUS_ID,
+            prefix="wfr",
+            type="workflow_run",
+            service_name="workflow",
+            alias="portal-test-run-001",
+        )
+        return obj
 
     def setUp(self):
         self.case = CaseFactory(request_form_id=CASE_REQUEST_FORM_ID)
@@ -83,7 +103,7 @@ class WorkflowRunLinkingHandlerTest(TestCase):
     @patch("handler.workflow_run_linking.get_or_create_external_entity")
     @patch("handler.workflow_run_linking.link_case_to_external_entity_and_emit")
     def test_matches_second_library_when_first_not_linked(
-        self, mock_link, mock_get_entity
+            self, mock_link, mock_get_entity
     ):
         """Falls through to the second library if the first has no linked case."""
         from handler.workflow_run_linking import handler
@@ -158,19 +178,6 @@ class WorkflowRunLinkingHandlerTest(TestCase):
         with self.assertRaises(Http404):
             handler(make_event(), {})
 
-    # ------------------------------------------------------------------
-    # Blocked case states (enforced by CaseExternalEntityLink.save())
-    # ------------------------------------------------------------------
-
-    def _create_wfr_entity(self):
-        return ExternalEntity.objects.create(
-            orcabus_id=WORKFLOW_RUN_ORCABUS_ID,
-            prefix="wfr",
-            type="workflow_run",
-            service_name="workflow",
-            alias="portal-test-run-001",
-        )
-
     @patch("handler.workflow_run_linking.get_or_create_external_entity")
     def test_locked_case_skips_link(self, mock_get_entity):
         """ValidationError from the model is caught; no link is created for a locked case."""
@@ -187,20 +194,6 @@ class WorkflowRunLinkingHandlerTest(TestCase):
                 case=self.case, external_entity__orcabus_id=WORKFLOW_RUN_ORCABUS_ID
             ).exists()
         )
-
-    # ------------------------------------------------------------------
-    # Blocked case states (enforced by CaseExternalEntityLink.save())
-    # ------------------------------------------------------------------
-
-    def _create_wfr_entity(self):
-        obj, _ = ExternalEntity.objects.get_or_create(
-            orcabus_id=WORKFLOW_RUN_ORCABUS_ID,
-            prefix="wfr",
-            type="workflow_run",
-            service_name="workflow",
-            alias="portal-test-run-001",
-        )
-        return obj
 
     @patch("handler.workflow_run_linking.get_or_create_external_entity")
     def test_blocked_case_states_skip_link(self, mock_get_entity):

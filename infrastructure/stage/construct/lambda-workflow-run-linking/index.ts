@@ -57,13 +57,13 @@ export class LambdaWorkflowRunEntityLinkConstruct extends Construct {
     orcabusEventBus.grantPutEventsTo(this.lambda);
     this.lambda.addEnvironment('EVENT_BUS_NAME', EVENT_BUS_NAME);
 
-    // Add EventBridge rule to trigger Lambda on WorkflowRunUpdate events to link with cases
+    // Add EventBridge rule to trigger Lambda on WorkflowRunStateChange events to link with cases
     const workflowRunLinkLambdaEventTarget = new LambdaFunction(this.lambda);
     new Rule(this, 'WorkflowRunEntityLinkLambdaRule', {
       eventBus: orcabusEventBus,
-      description: 'Rule to trigger Lambda on WorkflowRunUpdate events to link with cases',
+      description: 'Rule to trigger Lambda on WorkflowRunStateChange events to link with cases',
       eventPattern: {
-        detailType: ['WorkflowRunUpdate'],
+        detailType: ['WorkflowRunStateChange'],
         detail: {
           status: ['DRAFT'],
         },
