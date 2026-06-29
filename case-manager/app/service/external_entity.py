@@ -70,15 +70,85 @@ def fetch_external_entity_data(orcabus_id: str):
     raise Http404(f"No ExternalEntity matches the given orcabus_id: {orcabus_id}")
 
 
+def get_or_create_sequence_run_entity(sequence_run_id: str) -> ExternalEntity:
+    """
+    Get or create an ExternalEntity for a sequence run identified by its sequenceRunId.
+
+    The sequenceRunId from the event payload is NOT the orcabus_id. This function
+    queries the sequence service to resolve the real orcabusId, then gets or creates
+    the corresponding ExternalEntity.
+
+    Args:
+        sequence_run_id: The sequenceRunId from the event (e.g. "r.uY6hEBUmv5x5XUDhkNVxtY").
+
+    Returns:
+        The existing or newly created ExternalEntity for the sequence run.
+
+    Raises:
+        Http404: When the sequence run is not found in the sequence service.
+    """
+    # Fast path: entity already exists (keyed by alias + type)
+    try:
+        return ExternalEntity.objects.get(alias=sequence_run_id, type="sequence_run")
+    except ObjectDoesNotExist:
+        pass
+
+    # Query the sequence service to resolve the real orcabusId
+    jwt_token = get_service_jwt()
+    headers = {"Authorization": f"Bearer {jwt_token}"}
+    domain_name = os.environ["HOSTED_ZONE_NAME"]
+    url = f"https://sequence.{domain_name}/api/v1/sequencerun/"
+
+    try:
+        response = requests.get(
+            url, headers=headers, params={"sequenceRunId": sequence_run_id}
+        )
+    except requests.RequestException as e:
+        logger.error(
+            f"Sequence service request failed for sequenceRunId '{sequence_run_id}': {e}"
+        )
+        raise Http404(
+            f"Sequence service unreachable for sequenceRunId: {sequence_run_id}"
+        )
+
+    if response.status_code != 200:
+        raise Http404(
+            f"Sequence service returned {response.status_code} for sequenceRunId '{sequence_run_id}'"
+        )
+
+    data = response.json()
+    results = data.get("results")
+    if not results or len(results) != 1:
+        raise Http404(
+            f"Sequence run is not equal to one for sequenceRunId: {sequence_run_id}"
+        )
+
+    orcabus_id = results[0].get("orcabusId")
+    if not orcabus_id:
+        raise Http404(
+            f"Sequence service response missing 'orcabusId' for sequenceRunId: {sequence_run_id}"
+        )
+
+    external_entity = ExternalEntity.objects.create(
+        orcabus_id=orcabus_id,
+        prefix=orcabus_id.split(".")[0] if "." in orcabus_id else "",
+        type="sequence_run",
+        service_name="sequence",
+        alias=sequence_run_id,
+    )
+    logger.info(f"Created sequence run external entity: {sequence_run_id}")
+    return external_entity
+
+
 def get_or_create_external_entity(external_entity_orcabus_id: str) -> ExternalEntity:
     """
-    Get or create external entity by orcabus_id
+    Get or create external entity by orcabus_id.
 
-    it will get the external entity if it exists, otherwise it will create a new one with the given orcabus_id.
-    The creation is only lookup to workflow_run (workflow service) and library (metadata service), if a prefix is found in the orcabus_id, it will only lookup to the corresponding service.
+    Creates the entity by looking it up in the appropriate service based on the orcabus_id prefix:
+      prefix wfr. -> workflow run (workflow service)
+      prefix lib. -> library (metadata service)
 
-    prefix wfr. -> workflow run
-    prefix lib. -> library
+    For sequence runs, use get_or_create_sequence_run_entity() instead.
     """
     try:
         external_entity = ExternalEntity.objects.get(
