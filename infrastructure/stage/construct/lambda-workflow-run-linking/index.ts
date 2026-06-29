@@ -66,6 +66,11 @@ export class LambdaWorkflowRunEntityLinkConstruct extends Construct {
         detailType: ['WorkflowRunStateChange'],
         detail: {
           status: ['READY'],
+          workflow: {
+            name: [
+              { 'anything-but': { 'equals-ignore-case': ['bclconvert', 'bclconvert-interop-qc'] } },
+            ],
+          },
         },
       },
       targets: [workflowRunLinkLambdaEventTarget],
