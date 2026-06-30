@@ -29,7 +29,7 @@ def handler(event, context):
     Expected event detail shape:
         {
             "instrumentRunId": "...",
-            "sequenceRunId": "r.<ulid>",
+            "sequenceRunId": "r.xxx",
             "timeStamp": "...",
             "linkedLibraries": ["L0000001", "L0000002", ...]
         }
