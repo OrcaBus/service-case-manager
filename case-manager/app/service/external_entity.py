@@ -14,7 +14,7 @@ def fetch_external_entity_data(orcabus_id: str):
     Query the metadata and/or workflow service to get entity details.
 
     Supports:
-    - Prefixed IDs: wfr.* (workflow), lib.* (library)
+    - Prefixed IDs: wfr.* (workflow), lib.* (library), seq.* (sequence)
     - Unprefixed IDs: tries workflow first, then metadata
 
     Returns:
@@ -40,6 +40,13 @@ def fetch_external_entity_data(orcabus_id: str):
         services = [
             ("metadata", f"https://metadata.{domain_name}/api/v1/library/{orcabus_id}")
         ]
+    elif orcabus_id.startswith("seq."):
+        services = [
+            (
+                "sequence",
+                f"https://sequence.{domain_name}/api/v1/sequence_run/{orcabus_id}/",
+            )
+        ]
     else:
         # No prefix: try both services (workflow first)
         services = [
@@ -48,6 +55,10 @@ def fetch_external_entity_data(orcabus_id: str):
                 f"https://workflow.{domain_name}/api/v1/workflowrun/{orcabus_id}",
             ),
             ("metadata", f"https://metadata.{domain_name}/api/v1/library/{orcabus_id}"),
+            (
+                "sequence",
+                f"https://sequence.{domain_name}/api/v1/sequence_run/{orcabus_id}/",
+            ),
         ]
 
     # Try each service
@@ -97,7 +108,7 @@ def get_or_create_sequence_run_entity(sequence_run_id: str) -> ExternalEntity:
     jwt_token = get_service_jwt()
     headers = {"Authorization": f"Bearer {jwt_token}"}
     domain_name = os.environ["HOSTED_ZONE_NAME"]
-    url = f"https://sequence.{domain_name}/api/v1/sequencerun/"
+    url = f"https://sequence.{domain_name}/api/v1/sequence_run/"
 
     try:
         response = requests.get(
@@ -145,8 +156,9 @@ def get_or_create_external_entity(external_entity_orcabus_id: str) -> ExternalEn
     Get or create external entity by orcabus_id.
 
     Creates the entity by looking it up in the appropriate service based on the orcabus_id prefix:
-      prefix wfr. -> workflow run (workflow service)
+      prefix wfr. -> workflow_run run (workflow service)
       prefix lib. -> library (metadata service)
+      prefix seq. -> sequence_run (sequence service)
 
     For sequence runs, use get_or_create_sequence_run_entity() instead.
     """
@@ -177,6 +189,18 @@ def get_or_create_external_entity(external_entity_orcabus_id: str) -> ExternalEn
                 type="library",
                 service_name="metadata",
                 alias=entity_data.get("libraryId"),
+            )
+            logger.info(
+                f"Created library external entity: {external_entity_orcabus_id}"
+            )
+            return external_entity
+        elif service == "sequence":
+            external_entity = ExternalEntity.objects.create(
+                orcabus_id=external_entity_orcabus_id,
+                prefix="seq",
+                type="sequence_run",
+                service_name="sequence",
+                alias=entity_data.get("sequenceRunId"),
             )
             logger.info(
                 f"Created library external entity: {external_entity_orcabus_id}"
