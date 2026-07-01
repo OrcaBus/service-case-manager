@@ -10,6 +10,11 @@ import { Secret } from 'aws-cdk-lib/aws-secretsmanager';
 import { JWT_SECRET_NAME } from '@orcabus/platform-cdk-constructs/shared-config/secrets';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 
+const WGS_WORKFLOW = ['sash', 'tumor-normal', 'dragen-wgts-dna'];
+const WTS_WORKFLOW = ['rnasum', 'wts', 'dragen-wgts-rna'];
+const CTTSO_WORKFLOW = ['dragen-tso500-ctdna', 'cttsov2'];
+const SUPPORTED_WORKFLOWS = [...WGS_WORKFLOW, ...WTS_WORKFLOW, ...CTTSO_WORKFLOW];
+
 type WorkflowRunEntityLinkLambdaProps = {
   /**
    * The basic common lambda properties that it should inherit from
@@ -67,9 +72,7 @@ export class LambdaWorkflowRunEntityLinkConstruct extends Construct {
         detail: {
           status: ['READY'],
           workflow: {
-            name: [
-              { 'anything-but': { 'equals-ignore-case': ['bclconvert', 'bclconvert-interop-qc'] } },
-            ],
+            name: SUPPORTED_WORKFLOWS,
           },
         },
       },
