@@ -222,6 +222,85 @@ class WorkflowRunLinkingHandlerTest(TestCase):
                     msg=f"Expected no link for status '{status}'",
                 )
 
+    # ------------------------------------------------------------------
+    # Multi-library / multi-case linking
+    # ------------------------------------------------------------------
+
+    @patch("handler.workflow_run_linking.get_or_create_external_entity")
+    @patch("handler.workflow_run_linking.link_case_to_external_entity_and_emit")
+    def test_multiple_libraries_same_case_links_once(self, mock_link, mock_get_entity):
+        """
+        When both libraries in the event are linked to the same case,
+        the workflow run should be linked to that case exactly once (deduplicated).
+        """
+        from handler.workflow_run_linking import handler
+
+        # Link the second library to the same case
+        library_entity_2 = ExternalEntity.objects.create(
+            orcabus_id=LIBRARY_ORCABUS_ID_2,
+            prefix="lib",
+            type="library",
+            service_name="metadata",
+            alias=LIBRARY_ID_2,
+        )
+        CaseExternalEntityLink.objects.create(
+            case=self.case, external_entity=library_entity_2
+        )
+
+        mock_wfr_entity = MagicMock()
+        mock_get_entity.return_value = mock_wfr_entity
+        mock_link.return_value = MagicMock()
+
+        handler(make_event(), {})
+
+        mock_get_entity.assert_called_once_with(WORKFLOW_RUN_ORCABUS_ID)
+        # Even though two libraries matched, both point to the same case → one link call
+        mock_link.assert_called_once_with(
+            self.case, mock_wfr_entity, history_user="system"
+        )
+
+    @patch("handler.workflow_run_linking.get_or_create_external_entity")
+    def test_multiple_libraries_different_cases_links_all(self, mock_get_entity):
+        """
+        When each library is linked to a different case, the workflow run should be
+        linked to every matched case. Verified against the real DB (no mock on link).
+        """
+        from handler.workflow_run_linking import handler
+
+        case_2 = CaseFactory(request_form_id="case-test-wfr-002")
+        library_entity_2 = ExternalEntity.objects.create(
+            orcabus_id=LIBRARY_ORCABUS_ID_2,
+            prefix="lib",
+            type="library",
+            service_name="metadata",
+            alias=LIBRARY_ID_2,
+        )
+        CaseExternalEntityLink.objects.create(
+            case=case_2, external_entity=library_entity_2
+        )
+
+        wfr_entity = self._create_wfr_entity()
+        mock_get_entity.return_value = wfr_entity
+
+        handler(make_event(), {})
+
+        # get_or_create called once — same entity shared across all case links
+        mock_get_entity.assert_called_once_with(WORKFLOW_RUN_ORCABUS_ID)
+
+        # Both cases must now be linked to the workflow run in the DB
+        self.assertTrue(
+            CaseExternalEntityLink.objects.filter(
+                case=self.case, external_entity=wfr_entity
+            ).exists(),
+            "case 1 should be linked to the workflow run",
+        )
+        self.assertTrue(
+            CaseExternalEntityLink.objects.filter(
+                case=case_2, external_entity=wfr_entity
+            ).exists(),
+            "case 2 should be linked to the workflow run",
+        )
+
     def test_model_raises_validation_error_directly_for_locked_case(self):
         """CaseExternalEntityLink.save() itself raises ValidationError — model-level enforcement."""
         user = UserFactory()

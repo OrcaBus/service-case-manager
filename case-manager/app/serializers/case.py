@@ -84,6 +84,12 @@ class CaseExternalEntityLinkCreateSerializer(ModelSerializer):
         fields = "__all__"
 
 
+class CaseSequenceRunLinkCreateSerializer(Serializer):
+    sequence_run_id = CharField(
+        help_text="The sequenceRunId (alias) of the sequence run to link, e.g. 'r.uY6hEBUmv5x5XUDhkNVxtY'."
+    )
+
+
 class CaseUserCreateSerializer(ModelSerializer):
     case = CharField(read_only=True)
     email = EmailField(write_only=True)

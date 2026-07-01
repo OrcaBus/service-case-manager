@@ -10,12 +10,7 @@ import { Secret } from 'aws-cdk-lib/aws-secretsmanager';
 import { JWT_SECRET_NAME } from '@orcabus/platform-cdk-constructs/shared-config/secrets';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 
-const WGS_WORKFLOW = ['sash', 'tumor-normal', 'dragen-wgts-dna'];
-const WTS_WORKFLOW = ['rnasum', 'wts', 'dragen-wgts-rna'];
-const CTTSO_WORKFLOW = ['dragen-tso500-ctdna', 'cttsov2', 'pieriandx-tso500-ctdna'];
-const SUPPORTED_WORKFLOWS = [...WGS_WORKFLOW, ...WTS_WORKFLOW, ...CTTSO_WORKFLOW];
-
-type WorkflowRunEntityLinkLambdaProps = {
+type SequenceRunEntityLinkLambdaProps = {
   /**
    * The basic common lambda properties that it should inherit from
    */
@@ -23,16 +18,16 @@ type WorkflowRunEntityLinkLambdaProps = {
 };
 
 /**
- * Lambda triggered by EventBridge on WorkflowRunStateChange events
+ * Lambda triggered by EventBridge on SequenceRunStateChange events
  */
-export class LambdaWorkflowRunEntityLinkConstruct extends Construct {
+export class LambdaSequenceRunEntityLinkConstruct extends Construct {
   readonly lambda: PythonFunction;
-  constructor(scope: Construct, id: string, props: WorkflowRunEntityLinkLambdaProps) {
+  constructor(scope: Construct, id: string, props: SequenceRunEntityLinkLambdaProps) {
     super(scope, id);
 
-    this.lambda = new PythonFunction(this, 'CaseWorkflowRunLinkLambda', {
+    this.lambda = new PythonFunction(this, 'CaseSequenceRunLinkLambda', {
       ...props.basicLambdaConfig,
-      index: 'handler/workflow_run_linking.py',
+      index: 'handler/sequence_run_linking.py',
       handler: 'handler',
       timeout: Duration.minutes(15),
       // Not using environment here to prevent overriding from the basicLambdaConfig EnvVar
@@ -62,21 +57,16 @@ export class LambdaWorkflowRunEntityLinkConstruct extends Construct {
     orcabusEventBus.grantPutEventsTo(this.lambda);
     this.lambda.addEnvironment('EVENT_BUS_NAME', EVENT_BUS_NAME);
 
-    // Add EventBridge rule to trigger Lambda on WorkflowRunStateChange events to link with cases
-    const workflowRunLinkLambdaEventTarget = new LambdaFunction(this.lambda);
-    new Rule(this, 'WorkflowRunEntityLinkLambdaRule', {
+    // Add EventBridge rule to trigger Lambda on SequenceRunStateChange events to link with cases
+    const sequenceRunLinkLambdaEventTarget = new LambdaFunction(this.lambda);
+    new Rule(this, 'SequenceRunLibraryEntityLinkLambdaRule', {
       eventBus: orcabusEventBus,
-      description: 'Rule to trigger Lambda on WorkflowRunStateChange events to link with cases',
+      description:
+        'Rule to trigger Lambda on SequenceRunLibraryLinkingChange events to link with cases',
       eventPattern: {
-        detailType: ['WorkflowRunStateChange'],
-        detail: {
-          status: ['READY'],
-          workflow: {
-            name: SUPPORTED_WORKFLOWS,
-          },
-        },
+        detailType: ['SequenceRunLibraryLinkingChange'],
       },
-      targets: [workflowRunLinkLambdaEventTarget],
+      targets: [sequenceRunLinkLambdaEventTarget],
     });
   }
 }
