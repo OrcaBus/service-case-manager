@@ -12,7 +12,7 @@ import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 
 const WGS_WORKFLOW = ['sash', 'tumor-normal', 'dragen-wgts-dna'];
 const WTS_WORKFLOW = ['rnasum', 'wts', 'dragen-wgts-rna'];
-const CTTSO_WORKFLOW = ['dragen-tso500-ctdna', 'cttsov2'];
+const CTTSO_WORKFLOW = ['dragen-tso500-ctdna', 'cttsov2', 'pieriandx-tso500-ctdna'];
 const SUPPORTED_WORKFLOWS = [...WGS_WORKFLOW, ...WTS_WORKFLOW, ...CTTSO_WORKFLOW];
 
 type WorkflowRunEntityLinkLambdaProps = {
