@@ -1,3 +1,4 @@
+from django.db import IntegrityError
 from drf_spectacular.utils import extend_schema
 from rest_framework import serializers
 from rest_framework.decorators import action
@@ -27,7 +28,9 @@ from ..service.case import (
     unlink_case_to_external_entity_and_emit,
     get_case_activity,
 )
-from ..service.external_entity import get_or_create_external_entity
+from ..service.external_entity import (
+    get_or_create_external_entity,
+)
 from ..service.redcap_import import (
     get_redcap_record_by_filter,
     upsert_case_from_redcap_record,
@@ -56,9 +59,18 @@ class CaseLinkMixin:
         external_entity = get_or_create_external_entity(
             serializer.validated_data["external_entity"]
         )
-        link = link_case_to_external_entity_and_emit(
-            case, external_entity, get_email_from_jwt(request)
-        )
+        try:
+            link = link_case_to_external_entity_and_emit(
+                case, external_entity, get_email_from_jwt(request)
+            )
+        except IntegrityError:
+            return Response(
+                {
+                    "detail": f"A link between case '{case.orcabus_id}' and external entity "
+                    f"'{external_entity.orcabus_id}' already exists."
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
         return Response(CaseExternalEntityLinkCreateSerializer(link).data)
 
     @extend_schema(

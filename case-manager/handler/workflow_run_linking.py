@@ -42,29 +42,29 @@ def handler(event, context):
         )
         return
 
-    # Find a case linked to any of the libraries
-    case = None
-    matched_library_id = None
+    # Find all cases linked to any of the libraries (deduplicated by case id)
+    case_to_library_map = {}  # case_orcabus_id -> (case, matched_library_id)
     for lib in libraries:
         lib_orcabus_id = lib.get("orcabusId")
         if not lib_orcabus_id:
             continue
 
         try:
-            link = CaseExternalEntityLink.objects.select_related("case").get(
+            links = CaseExternalEntityLink.objects.select_related("case").filter(
                 external_entity__orcabus_id=lib_orcabus_id
             )
-            case = link.case
-            matched_library_id = lib_orcabus_id
-            logger.info(
-                f"Found case '{case.orcabus_id}' via library '{lib_orcabus_id}'."
-            )
-            break
+            for link in links:
+                case = link.case
+                if case.orcabus_id not in case_to_library_map:
+                    case_to_library_map[case.orcabus_id] = (case, lib_orcabus_id)
+                    logger.info(
+                        f"Found case '{case.orcabus_id}' via library '{lib_orcabus_id}'."
+                    )
         except CaseExternalEntityLink.DoesNotExist:
             logger.debug(f"No case linked to library '{lib_orcabus_id}', trying next.")
             continue
 
-    if case is None:
+    if not case_to_library_map:
         logger.warning(
             f"No case found linked to any of the libraries for workflow run "
             f"'{workflow_run_orcabus_id}'. Libraries checked: "
@@ -77,24 +77,25 @@ def handler(event, context):
     # workflow service, we treat it as a hard failure so the Lambda retries the event.
     workflow_run_entity = get_or_create_external_entity(workflow_run_orcabus_id)
 
-    try:
-        link = link_case_to_external_entity_and_emit(
-            case, workflow_run_entity, history_user="system"
-        )
-        logger.info(
-            f"Successfully linked workflow run '{workflow_run_orcabus_id}' to case '{case.orcabus_id}' "
-            f"(matched via library '{matched_library_id}')."
-        )
-        logger.info(f"Link data: {CaseExternalEntityLinkSerializer(link).data}")
+    for case_orcabus_id, (case, matched_library_id) in case_to_library_map.items():
+        try:
+            link = link_case_to_external_entity_and_emit(
+                case, workflow_run_entity, history_user="system"
+            )
+            logger.info(
+                f"Successfully linked workflow run '{workflow_run_orcabus_id}' to case '{case.orcabus_id}' "
+                f"(matched via library '{matched_library_id}')."
+            )
+            logger.info(f"Link data: {CaseExternalEntityLinkSerializer(link).data}")
 
-    except ValidationError as e:
-        # Case is locked / completed / archived — blocked at the model level.
-        # Log a warning and return cleanly; no retry needed.
-        logger.warning(
-            f"Skipping workflow run link for '{workflow_run_orcabus_id}': {e.detail}"
-        )
+        except ValidationError as e:
+            # Case is locked / completed / archived — blocked at the model level.
+            # Log a warning and continue to the next case; no retry needed.
+            logger.warning(
+                f"Skipping workflow run link for '{workflow_run_orcabus_id}' to case '{case.orcabus_id}': {e.detail}"
+            )
 
-    except IntegrityError:
-        logger.warning(
-            f"Workflow run '{workflow_run_orcabus_id}' is already linked to case '{case.orcabus_id}', skipping."
-        )
+        except IntegrityError:
+            logger.warning(
+                f"Workflow run '{workflow_run_orcabus_id}' is already linked to case '{case.orcabus_id}', skipping."
+            )
