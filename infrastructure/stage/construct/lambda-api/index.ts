@@ -110,6 +110,27 @@ export class LambdaAPIConstruct extends Construct {
       routeKey: HttpRouteKey.with(`/api/${this.API_VERSION}/{PROXY+}`, HttpMethod.DELETE),
     });
 
+    // External-entity paths use Amazon Verified Permissions via the auth-stack Lambda authorizer.
+    // More specific routes take precedence over the {PROXY+} wildcards above.
+    new HttpRoute(this, 'PostExternalEntityCollectionHttpRoute', {
+      httpApi: apiGW.httpApi,
+      integration: apiIntegration,
+      authorizer: apiGW.authStackHttpLambdaAuthorizer,
+      routeKey: HttpRouteKey.with(
+        `/api/${this.API_VERSION}/case/{orcabusId}/external-entity/{PROXY+}`,
+        HttpMethod.POST
+      ),
+    });
+    new HttpRoute(this, 'DeleteExternalEntityItemHttpRoute', {
+      httpApi: apiGW.httpApi,
+      integration: apiIntegration,
+      authorizer: apiGW.authStackHttpLambdaAuthorizer,
+      routeKey: HttpRouteKey.with(
+        `/api/${this.API_VERSION}/case/{orcabusId}/external-entity/{externalEntityOrcabusId}/{PROXY+}`,
+        HttpMethod.DELETE
+      ),
+    });
+
     const orcabusEventBus = EventBus.fromEventBusName(this, 'EventBus', EVENT_BUS_NAME);
     orcabusEventBus.grantPutEventsTo(this.lambda);
     this.lambda.addEnvironment('EVENT_BUS_NAME', EVENT_BUS_NAME);
