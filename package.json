@@ -23,24 +23,23 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/jest": "^30.0.0",
-    "@types/node": "^25.9.1",
-    "aws-cdk": "^2.1125.0",
-    "cdk-nag": "^2.38.2",
-    "eslint": "^10.4.1",
-    "globals": "^17.6.0",
+    "@types/node": "^26.1.1",
+    "aws-cdk": "^2.1131.0",
+    "cdk-nag": "^3.0.1",
+    "eslint": "^10.7.0",
+    "globals": "^17.7.0",
     "jest": "^30.4.2",
-    "prettier": "^3.8.3",
+    "prettier": "^3.9.5",
     "test-js": "^0.0.4",
     "ts-jest": "^29.4.11",
     "ts-node": "^10.9.2",
-    "typescript": "^5.9.3",
-    "typescript-eslint": "^8.60.1"
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.64.0"
   },
   "dependencies": {
-    "@aws-cdk/aws-lambda-python-alpha": "2.252.0-alpha.0",
-    "@orcabus/platform-cdk-constructs": "1.4.0",
-    "aws-cdk-lib": "^2.257.0",
-    "case-manager": "link:",
+    "@aws-cdk/aws-lambda-python-alpha": "2.261.0-alpha.0",
+    "@orcabus/platform-cdk-constructs": "1.8.0",
+    "aws-cdk-lib": "^2.261.0",
     "constructs": "^10.6.0"
   }
 }

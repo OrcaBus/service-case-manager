@@ -1,8 +1,6 @@
-import { App, Aspects } from 'aws-cdk-lib';
-import { Annotations, Match } from 'aws-cdk-lib/assertions';
-import { AwsSolutionsChecks, NagSuppressions } from 'cdk-nag';
+import { App, Validations } from 'aws-cdk-lib';
+import { AwsSolutionsChecks } from 'cdk-nag';
 import { StatelessStack } from '../infrastructure/toolchain/stateless-stack';
-import { synthesisMessageToString } from './utils';
 
 describe('cdk-nag-stateless-toolchain-stack', () => {
   const app = new App({});
@@ -14,27 +12,36 @@ describe('cdk-nag-stateless-toolchain-stack', () => {
     },
   });
 
-  Aspects.of(statelessStack).add(new AwsSolutionsChecks());
+  Validations.of(statelessStack).acknowledge({
+    id: 'AwsSolutions-IAM4',
+    reason: 'Allow CDK Pipeline',
+  });
+  Validations.of(statelessStack).acknowledge({
+    id: 'AwsSolutions-IAM5',
+    reason: 'Allow CDK Pipeline',
+  });
+  Validations.of(statelessStack).acknowledge({
+    id: 'AwsSolutions-S1',
+    reason: 'Allow CDK Pipeline',
+  });
+  Validations.of(statelessStack).acknowledge({
+    id: 'AwsSolutions-KMS5',
+    reason: 'Allow CDK Pipeline',
+  });
+  Validations.of(statelessStack).acknowledge({
+    id: 'AwsSolutions-CB3',
+    reason: 'Allow CDK Pipeline',
+  });
 
-  NagSuppressions.addStackSuppressions(statelessStack, [
-    { id: 'AwsSolutions-IAM4', reason: 'Allow CDK Pipeline' },
-    { id: 'AwsSolutions-IAM5', reason: 'Allow CDK Pipeline' },
-    { id: 'AwsSolutions-S1', reason: 'Allow CDK Pipeline' },
-    { id: 'AwsSolutions-KMS5', reason: 'Allow CDK Pipeline' },
-    { id: 'AwsSolutions-CB3', reason: 'Allow CDK Pipeline' },
-  ]);
+  const report = new AwsSolutionsChecks(app).validateScope(statelessStack);
 
   test(`cdk-nag AwsSolutions Pack errors`, () => {
-    const errors = Annotations.fromStack(statelessStack)
-      .findError('*', Match.stringLikeRegexp('AwsSolutions-.*'))
-      .map(synthesisMessageToString);
+    const errors = report.violations.filter((v) => v.severity === 'error');
     expect(errors).toHaveLength(0);
   });
 
   test(`cdk-nag AwsSolutions Pack warnings`, () => {
-    const warnings = Annotations.fromStack(statelessStack)
-      .findWarning('*', Match.stringLikeRegexp('AwsSolutions-.*'))
-      .map(synthesisMessageToString);
+    const warnings = report.violations.filter((v) => v.severity === 'warning');
     expect(warnings).toHaveLength(0);
   });
 });

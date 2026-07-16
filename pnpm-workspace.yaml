@@ -1,4 +1,2 @@
 allowBuilds:
   unrs-resolver: set this to true or false
-overrides:
-  js-yaml@<=4.1.1: '>=4.2.0'
