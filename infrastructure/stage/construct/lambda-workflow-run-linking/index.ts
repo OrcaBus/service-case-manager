@@ -10,10 +10,16 @@ import { Secret } from 'aws-cdk-lib/aws-secretsmanager';
 import { JWT_SECRET_NAME } from '@orcabus/platform-cdk-constructs/shared-config/secrets';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 
-const WGS_WORKFLOW = ['sash', 'tumor-normal', 'dragen-wgts-dna'];
-const WTS_WORKFLOW = ['rnasum', 'wts', 'dragen-wgts-rna'];
+const WGS_WORKFLOW = ['sash', 'tumor-normal', 'dragen-wgts-dna', 'oncoanalyser-wgts-dna'];
+const WTS_WORKFLOW = ['wts', 'dragen-wgts-rna', 'oncoanalyser-wgts-rna'];
+const WGS_WTS_WORKFLOW = ['oncoanalyser-wgts-dna-rna', 'arriba-wgts-rna', 'rnasum'];
 const CTTSO_WORKFLOW = ['dragen-tso500-ctdna', 'cttsov2', 'pieriandx-tso500-ctdna'];
-const SUPPORTED_WORKFLOWS = [...WGS_WORKFLOW, ...WTS_WORKFLOW, ...CTTSO_WORKFLOW];
+const SUPPORTED_WORKFLOWS = [
+  ...WGS_WORKFLOW,
+  ...WTS_WORKFLOW,
+  ...WGS_WTS_WORKFLOW,
+  ...CTTSO_WORKFLOW,
+];
 
 type WorkflowRunEntityLinkLambdaProps = {
   /**
