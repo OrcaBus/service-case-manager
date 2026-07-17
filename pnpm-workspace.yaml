@@ -1,2 +1,2 @@
-overrides:
-  js-yaml@<=4.1.1: '>=4.2.0'
+allowBuilds:
+  unrs-resolver: true
