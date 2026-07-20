@@ -88,28 +88,30 @@ def get_redcap_record_by_filter(filter_logic: str) -> list[dict]:
     return _post(payload)
 
 
-def get_case_value(field_name: str, record: dict[str, str]) -> str:
-    """Extract a case field value from a REDCap record."""
-    if field_name == "request_form_id":
-        if "request_id" not in record:
-            raise KeyError("Missing 'request_id' in REDCap record.")
-        return record["request_id"]
-    if field_name == "case_type":
-        rf_val = record.get("rf_test_requested")
-        if rf_val is None:
-            raise KeyError("Missing 'rf_test_requested' in REDCap record.")
-        accepted_values = [c[0] for c in Case.type.field.choices]
-        if rf_val not in accepted_values:
-            raise ValueError(f"Unknown rf_test_requested value: {rf_val}")
-        return rf_val
-    raise Exception(f"Unknown field {field_name}")
+def _require_field(record: dict[str, str], redcap_key: str) -> str:
+    """Extract a required field value from a REDCap record, raising if missing."""
+    val = record.get(redcap_key)
+    if val is None:
+        raise KeyError(f"Missing '{redcap_key}' in REDCap record.")
+    return val
 
 
 def upsert_case_from_redcap_record(record: dict[str, str]) -> Case:
     """Upsert a Case from REDCap record fields."""
 
-    request_form_id = get_case_value("request_form_id", record)
-    case_type = get_case_value("case_type", record)
+    request_form_id = _require_field(record, "request_id")
+
+    case_type = _require_field(record, "rf_test_requested")
+    accepted_values = [c[0] for c in Case.type.field.choices]
+    if case_type not in accepted_values:
+        raise ValueError(f"Unknown rf_test_requested value: {case_type}")
+
+    study_name = _require_field(record, "rf_study")
+    study_id = _require_field(record, "rf_study_id")
+    ur_number = _require_field(record, "rf_ur_number")
+
+    # germline
+
 
     try:
         case = Case.objects.get(request_form_id=request_form_id)

@@ -139,22 +139,63 @@ class CaseExternalEntityLink(models.Model):
 
 class Case(BaseModel):
     objects = CaseManager()
-
     orcabus_id = OrcaBusIdField(primary_key=True, prefix="cas")
+
+    # ------------------------------------------------------------------
+    # REDCap-managed fields
+    #
+    # Populated EXCLUSIVELY by the REDCap import service
+    # (app/service/redcap_import.py), which writes directly via the ORM
+    # and never goes through the REST API. These fields MUST NOT be
+    # writable through the public REST API.
+    #
+    # If this set grows significantly, consider extracting these into a
+    # dedicated CaseRedcapData(OneToOne→Case) model to make ownership
+    # boundaries explicit at the schema level.
+    # ------------------------------------------------------------------
+    REDCAP_MANAGED_FIELDS = (
+        "request_form_id",
+        "type",
+        "study_name",
+        "study_id",
+        "ur_number"
+    )
+
     request_form_id = models.CharField(
         unique=True,
         blank=False,
         null=False,
-        help_text="The unique ID from the external request form associated with this case.",
-    )
-    description = models.CharField(
-        blank=True, null=True, help_text="A brief description of the case"
+        help_text="[REDCap-managed] The unique ID from REDCap ('request_id') associated with this case.",
     )
     type = models.CharField(
         choices=CaseType.choices,
         blank=False,
         null=False,
-        help_text=f"The type for this case. One of: {', '.join(c[0] for c in CaseType.choices)}",
+        help_text="[REDCap-managed] The type for this case, mapped from REDCap 'rf_test_requested'. "
+                  f"One of: {', '.join(c[0] for c in CaseType.choices)}",
+    )
+    study_name = models.CharField(
+        blank=True,
+        null=True,
+        help_text="[REDCap-managed] The study_name for this case as recorded in REDCap.",
+    )
+    study_id = models.CharField(
+        blank=True,
+        null=True,
+        help_text="[REDCap-managed] The study_id within the defined study_name as recorded in REDCap.",
+    )
+    ur_number = models.CharField(
+        blank=True,
+        null=True,
+        help_text="[REDCap-managed] The UR (Unit Record) number for this case, as recorded in REDCap.",
+    )
+
+    # ------------------------------------------------------------------
+    # API-editable fields
+    # Freely writable through the public REST API. No REDCap involvement.
+    # ------------------------------------------------------------------
+    description = models.CharField(
+        blank=True, null=True, help_text="A brief description of the case"
     )
     study_type = models.CharField(
         choices=CaseStudyType.choices,
@@ -183,7 +224,13 @@ class Case(BaseModel):
         default=list,
         help_text="A list of aliases for this case, typically populated with external IDs to make searching easier.",
     )
+    due_date = models.DateField(
+        blank=True,
+        null=True,
+        help_text="The due date for the report.",
+    )
 
+    # Links to other models
     user_set = models.ManyToManyField(
         "User", through=CaseUserLink, related_name="case_set", blank=True
     )

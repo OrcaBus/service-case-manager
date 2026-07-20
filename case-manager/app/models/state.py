@@ -9,7 +9,9 @@ from app.models.base import BaseModel, BaseManager
 class CaseStatus(models.TextChoices):
     # Intake
     REQUEST_RECEIVED = "request_received", "Request Received"
-    SAMPLE_RECEIVED = "sample_received", "Sample Received"
+    WGTS_TUMOUR_SAMPLE_RECEIVED = "wgts_tumour_sample_received", "WGTS Tumour Sample Receipt"
+    WGTS_GERMLINE_SAMPLE_RECEIVED = "wgts_germline_sample_received", "WGTS Germline Sample Receipt"
+    CTTSO_SAMPLE_RECEIVED = "cttso_sample_received", "CTTSO Sample Receipt"
 
     # Library preparation
     LIBRARY_PARTIALLY_FAILED = "library_partially_failed", "Library Partially Failed"
@@ -50,11 +52,21 @@ class State(BaseModel):
         null=False,
         help_text="The status of the case.",
     )
-    event_at = models.DateTimeField(
+    event_at = models.DateField(
         blank=False,
         null=False,
         default=timezone.now,
-        help_text="When the event actually occurred. May differ from timestamp for retrospective entries.",
+        help_text="When the event actually occurred. May differ from created_at for retrospective entries.",
+    )
+    event_date = models.DateField(
+        blank=True,
+        null=True,
+        help_text="When the event date actually occurred. May differ from created_at for retrospective entries.",
+    )
+    event_time = models.TimeField(
+        blank=True,
+        null=True,
+        help_text="When the event time actually occurred. May differ from created_at for retrospective entries.",
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
