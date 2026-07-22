@@ -142,24 +142,33 @@ class Case(BaseModel):
     orcabus_id = OrcaBusIdField(primary_key=True, prefix="cas")
 
     # ------------------------------------------------------------------
-    # REDCap-managed fields
+    # Default deny: any concrete field NOT listed in API_WRITABLE_FIELDS
+    # is read-only via the public REST API (see get_read_only_fields()).
+    # This includes the REDCap-managed fields below, which are populated
+    # EXCLUSIVELY by the REDCap import service (app/service/redcap_import.py)
+    # writing directly via the ORM.
     #
-    # Populated EXCLUSIVELY by the REDCap import service
-    # (app/service/redcap_import.py), which writes directly via the ORM
-    # and never goes through the REST API. These fields MUST NOT be
-    # writable through the public REST API.
-    #
-    # If this set grows significantly, consider extracting these into a
-    # dedicated CaseRedcapData(OneToOne→Case) model to make ownership
-    # boundaries explicit at the schema level.
+    # New model fields are read-only by default — add a field's name here
+    # only when it should be directly writable through the API.
     # ------------------------------------------------------------------
-    REDCAP_MANAGED_FIELDS = (
-        "request_form_id",
-        "type",
-        "study_name",
-        "study_id",
-        "ur_number"
+    API_WRITABLE_FIELDS = (
+        "description",
+        "study_type",
+        "is_report_required",
+        "is_nata_accredited",
+        "links",
+        "alias",
+        "due_date",
     )
+
+    @classmethod
+    def get_read_only_fields(cls) -> tuple:
+        """All concrete fields not in API_WRITABLE_FIELDS (e.g. REDCap-managed fields, pk)."""
+        return tuple(
+            f
+            for f in cls.get_base_fields()
+            if f not in cls.API_WRITABLE_FIELDS and f != "orcabus_id"
+        )
 
     request_form_id = models.CharField(
         unique=True,

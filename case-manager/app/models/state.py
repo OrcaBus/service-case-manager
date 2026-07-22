@@ -9,9 +9,10 @@ from app.models.base import BaseModel, BaseManager
 class CaseStatus(models.TextChoices):
     # Intake
     REQUEST_RECEIVED = "request_received", "Request Received"
-    WGTS_TUMOUR_SAMPLE_RECEIVED = "wgts_tumour_sample_received", "WGTS Tumour Sample Receipt"
-    WGTS_GERMLINE_SAMPLE_RECEIVED = "wgts_germline_sample_received", "WGTS Germline Sample Receipt"
-    CTTSO_SAMPLE_RECEIVED = "cttso_sample_received", "CTTSO Sample Receipt"
+    WGTS_TUMOUR_SAMPLE_RECEIVED = "wgts_tumour_sample_received", "WGTS Tumour Sample Received"
+    WGTS_GERMLINE_SAMPLE_RECEIVED = "wgts_germline_sample_received", "WGTS Germline Sample Received"
+    CTTSO_SAMPLE_RECEIVED = "cttso_sample_received", "CTTSO Sample Received"
+    ALL_SAMPLE_RECEIVED = "all_sample_received", "All Sample Received"
 
     # Library preparation
     LIBRARY_PARTIALLY_FAILED = "library_partially_failed", "Library Partially Failed"

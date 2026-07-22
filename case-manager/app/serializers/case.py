@@ -25,9 +25,8 @@ class CaseSerializer(ModelSerializer):
     class Meta(OrcabusIdSerializerMetaMixin):
         model = Case
         exclude = ["user_set", "external_entity_set"]
-        # See Case.REDCAP_MANAGED_FIELDS — these are synced exclusively by
-        # app/service/redcap_import.py and must stay read-only via the API.
-        read_only_fields = Case.REDCAP_MANAGED_FIELDS
+        # Default deny: any field not in Case.API_WRITABLE_FIELDS is read-only.
+        read_only_fields = Case.get_read_only_fields()
 
 
 class CaseExternalEntityLinkSerializer(ModelSerializer):
@@ -67,9 +66,8 @@ class CaseDetailSerializer(ModelSerializer):
     class Meta(OrcabusIdSerializerMetaMixin):
         model = Case
         fields = "__all__"
-        # See Case.REDCAP_MANAGED_FIELDS — these are synced exclusively by
-        # app/service/redcap_import.py and must stay read-only via the API.
-        read_only_fields = Case.REDCAP_MANAGED_FIELDS
+        # Default deny: any field not in Case.API_WRITABLE_FIELDS is read-only.
+        read_only_fields = Case.get_read_only_fields()
 
     @extend_schema_field(StateSerializer(allow_null=True))
     def get_latest_state(self, obj):
