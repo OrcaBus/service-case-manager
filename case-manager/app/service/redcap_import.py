@@ -176,7 +176,7 @@ def upsert_case_from_redcap_record(record: dict[str, str]) -> Case:
     if study_id is not None:
         data["study_id"] = study_id
 
-    ur_number = record.get("rf_ur_number")
+    ur_number = record.get("rf_ur")
     if ur_number is not None:
         data["ur_number"] = ur_number
 
