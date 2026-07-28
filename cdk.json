@@ -1,5 +1,5 @@
 {
-  "app": "pnpx ts-node bin/deploy.ts",
+  "app": "pnpx tsx bin/deploy.ts",
   "watch": {
     "include": ["**"],
     "exclude": [
