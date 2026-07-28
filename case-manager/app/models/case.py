@@ -181,7 +181,7 @@ class Case(BaseModel):
         blank=False,
         null=False,
         help_text="[REDCap-managed] The type for this case, mapped from REDCap 'rf_test_requested'. "
-                  f"One of: {', '.join(c[0] for c in CaseType.choices)}",
+        f"One of: {', '.join(c[0] for c in CaseType.choices)}",
     )
     study_name = models.CharField(
         blank=True,

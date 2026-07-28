@@ -82,6 +82,49 @@ class BaseManager(models.Manager):
 
         return qs
 
+    def update_or_create_if_needed(
+        self,
+        search_key: dict,
+        data: dict,
+        user_id: str = None,
+        change_reason: str = None,
+    ) -> tuple[models.Model, bool, bool]:
+        """
+        The regular Django `update_or_create` method will always update the record even if there is no change. This
+        method will only update the record if there is a change. It also includes extra functionality to record the
+        user and change reason in the history tables as part of the audit.
+
+        Args:
+            search_key (dict): The search key to find the object.
+            data (dict): The latest data to update or create if needed.
+            user_id (str): The ID of the user making the change (could potentially be the email address).
+            change_reason (str): The reason for the change/insert.
+
+        Returns:
+            tuple: A tuple containing:
+                - obj (Model): The object that is updated or created
+                - is_created (bool): A boolean if the object is created
+                - is_updated (bool): A boolean if the object is updated
+        """
+        is_created = False
+        is_updated = False
+        try:
+            obj = self.get(**search_key)
+            for key, value in data.items():
+                # compare both value in str format to avoid any type mismatch
+                if str(getattr(obj, key)) != str(value):
+                    setattr(obj, key, value)
+                    is_updated = True
+        except self.model.DoesNotExist:
+            obj = self.model(**data)
+            is_created = True
+        if is_created or is_updated:
+            obj._history_user = user_id
+            obj._change_reason = change_reason
+            obj.save()
+
+        return obj, is_created, is_updated
+
 
 class BaseModel(models.Model):
     class Meta:

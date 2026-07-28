@@ -9,8 +9,14 @@ from app.models.base import BaseModel, BaseManager
 class CaseStatus(models.TextChoices):
     # Intake
     REQUEST_RECEIVED = "request_received", "Request Received"
-    WGTS_TUMOUR_SAMPLE_RECEIVED = "wgts_tumour_sample_received", "WGTS Tumour Sample Received"
-    WGTS_GERMLINE_SAMPLE_RECEIVED = "wgts_germline_sample_received", "WGTS Germline Sample Received"
+    WGTS_TUMOUR_SAMPLE_RECEIVED = (
+        "wgts_tumour_sample_received",
+        "WGTS Tumour Sample Received",
+    )
+    WGTS_GERMLINE_SAMPLE_RECEIVED = (
+        "wgts_germline_sample_received",
+        "WGTS Germline Sample Received",
+    )
     CTTSO_SAMPLE_RECEIVED = "cttso_sample_received", "CTTSO Sample Received"
     ALL_SAMPLE_RECEIVED = "all_sample_received", "All Sample Received"
 
@@ -46,6 +52,23 @@ class StateManager(BaseManager):
 class State(BaseModel):
     objects = StateManager()
 
+    # ------------------------------------------------------------------
+    # Default deny: any concrete field NOT listed in API_WRITABLE_FIELDS
+    # is read-only via the public REST API (see get_read_only_fields()).
+    # `is_archived` is intentionally excluded — it has its own dedicated
+    # archive endpoint and is never set through the regular serializer.
+    # ------------------------------------------------------------------
+    API_WRITABLE_FIELDS = ("status", "event_date", "event_time", "case")
+
+    @classmethod
+    def get_read_only_fields(cls) -> tuple:
+        """All concrete fields not in API_WRITABLE_FIELDS (e.g. audit fields, pk)."""
+        return tuple(
+            f.name
+            for f in cls._meta.fields
+            if f.name not in cls.API_WRITABLE_FIELDS and f.name != "orcabus_id"
+        )
+
     orcabus_id = OrcaBusIdField(primary_key=True)
     status = models.CharField(
         choices=CaseStatus.choices,
@@ -53,16 +76,11 @@ class State(BaseModel):
         null=False,
         help_text="The status of the case.",
     )
-    event_at = models.DateField(
+    event_date = models.DateField(
         blank=False,
         null=False,
         default=timezone.now,
         help_text="When the event actually occurred. May differ from created_at for retrospective entries.",
-    )
-    event_date = models.DateField(
-        blank=True,
-        null=True,
-        help_text="When the event date actually occurred. May differ from created_at for retrospective entries.",
     )
     event_time = models.TimeField(
         blank=True,
@@ -86,7 +104,7 @@ class State(BaseModel):
         on_delete=models.PROTECT,
         null=True,
         blank=True,
-        db_column="archive_by_user_orcabus_id",
+        db_column="archived_by_user_orcabus_id",
         related_name="archived_states",
     )
     # Relationships
@@ -110,12 +128,13 @@ class State(BaseModel):
         # Only allow archiving an existing state
         original = State.objects.get(pk=self.pk)
 
-        # Check that no fields other than is_archived and archived_at have changed
-        immutable_fields = ["status", "event_at", "case_id"]
-        for field in immutable_fields:
-            if getattr(original, field) != getattr(self, field):
+        mutable_fields = {"is_archived", "archived_at", "archived_by_id"}
+        for field in self._meta.fields:
+            if field.attname in mutable_fields:
+                continue
+            if getattr(original, field.attname) != getattr(self, field.attname):
                 raise ValidationError(
-                    f"State records are immutable. Field '{field}' cannot be updated."
+                    f"State records are immutable. Field '{field.attname}' cannot be updated."
                 )
 
         # Ensure is_archived actually changed (no-op updates not allowed)

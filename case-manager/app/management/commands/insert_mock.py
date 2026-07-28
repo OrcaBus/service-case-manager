@@ -4,7 +4,12 @@ from datetime import timedelta
 
 from app.tests.utils import clear_all_data
 from app.models import Case, User, State, Comment, ExternalEntity
-from app.models.case import CaseType, CaseStudyType
+from app.models.case import (
+    CaseType,
+    CaseStudyType,
+    CaseUserLink,
+    CaseExternalEntityLink,
+)
 from app.models.state import CaseStatus
 
 
@@ -75,51 +80,53 @@ class Command(BaseCommand):
 
         # ── Case 1: WGTS Clinical — in bioinformatics ──────────────────────────
         case1 = Case.objects.create(
-            title="SBJ00001-WGTS-Clinical",
+            request_form_id="mock-case-001",
             description="WGTS clinical case for subject SBJ00001",
             type=CaseType.WGTS,
             study_type=CaseStudyType.CLINICAL,
             is_report_required=True,
             is_nata_accredited=True,
-            trello_url="https://trello.com/c/mock001",
+            links={"trello": "https://trello.com/c/mock001"},
             alias=["SBJ00001", "PRJ00001"],
         )
-        case1.user_set.add(alice, through_defaults={"description": "Case Owner"})
-        case1.user_set.add(bob, through_defaults={"description": "Bioinformatician"})
-        case1.external_entity_set.add(lib_001)
-        case1.external_entity_set.add(lib_002)
-        case1.external_entity_set.add(idv_001)
-        case1.external_entity_set.add(seq_001)
+        CaseUserLink.objects.create(case=case1, user=alice, description="Case Owner")
+        CaseUserLink.objects.create(
+            case=case1, user=bob, description="Bioinformatician"
+        )
+        CaseExternalEntityLink.objects.create(case=case1, external_entity=lib_001)
+        CaseExternalEntityLink.objects.create(case=case1, external_entity=lib_002)
+        CaseExternalEntityLink.objects.create(case=case1, external_entity=idv_001)
+        CaseExternalEntityLink.objects.create(case=case1, external_entity=seq_001)
 
         s1_1 = State.objects.create(
             case=case1,
             status=CaseStatus.REQUEST_RECEIVED,
             created_by=alice,
-            event_at=now - timedelta(days=30),
+            event_date=now - timedelta(days=30),
         )
         s1_2 = State.objects.create(
             case=case1,
-            status=CaseStatus.SAMPLE_RECEIVED,
+            status=CaseStatus.WGTS_TUMOUR_SAMPLE_RECEIVED,
             created_by=alice,
-            event_at=now - timedelta(days=25),
+            event_date=now - timedelta(days=25),
         )
         s1_3 = State.objects.create(
             case=case1,
             status=CaseStatus.SEQUENCING_STARTED,
             created_by=bob,
-            event_at=now - timedelta(days=20),
+            event_date=now - timedelta(days=20),
         )
         s1_4 = State.objects.create(
             case=case1,
             status=CaseStatus.SEQUENCING_COMPLETED,
             created_by=bob,
-            event_at=now - timedelta(days=15),
+            event_date=now - timedelta(days=15),
         )
         s1_5 = State.objects.create(
             case=case1,
             status=CaseStatus.BIOINFORMATICS_STARTED,
             created_by=bob,
-            event_at=now - timedelta(days=10),
+            event_date=now - timedelta(days=10),
         )
 
         Comment.objects.create(
@@ -141,7 +148,7 @@ class Command(BaseCommand):
 
         # ── Case 2: WGTS Research — completed ─────────────────────────────────
         case2 = Case.objects.create(
-            title="SBJ00002-WGTS-Research",
+            request_form_id="mock-case-002",
             description="WGTS research case for subject SBJ00002",
             type=CaseType.WGTS,
             study_type=CaseStudyType.RESEARCH,
@@ -149,48 +156,48 @@ class Command(BaseCommand):
             is_nata_accredited=False,
             alias=["SBJ00002", "PRJ00002"],
         )
-        case2.user_set.add(john, through_defaults={"description": "Case Owner"})
-        case2.user_set.add(eve, through_defaults={"description": "Curator"})
-        case2.external_entity_set.add(lib_003)
-        case2.external_entity_set.add(idv_002)
-        case2.external_entity_set.add(seq_002)
-        case2.external_entity_set.add(wfr_001)
+        CaseUserLink.objects.create(case=case2, user=john, description="Case Owner")
+        CaseUserLink.objects.create(case=case2, user=eve, description="Curator")
+        CaseExternalEntityLink.objects.create(case=case2, external_entity=lib_003)
+        CaseExternalEntityLink.objects.create(case=case2, external_entity=idv_002)
+        CaseExternalEntityLink.objects.create(case=case2, external_entity=seq_002)
+        CaseExternalEntityLink.objects.create(case=case2, external_entity=wfr_001)
 
         s2_1 = State.objects.create(
             case=case2,
             status=CaseStatus.REQUEST_RECEIVED,
             created_by=john,
-            event_at=now - timedelta(days=60),
+            event_date=now - timedelta(days=60),
         )
         s2_2 = State.objects.create(
             case=case2,
-            status=CaseStatus.SAMPLE_RECEIVED,
+            status=CaseStatus.WGTS_TUMOUR_SAMPLE_RECEIVED,
             created_by=john,
-            event_at=now - timedelta(days=55),
+            event_date=now - timedelta(days=55),
         )
         s2_3 = State.objects.create(
             case=case2,
             status=CaseStatus.SEQUENCING_COMPLETED,
             created_by=john,
-            event_at=now - timedelta(days=45),
+            event_date=now - timedelta(days=45),
         )
         s2_4 = State.objects.create(
             case=case2,
             status=CaseStatus.BIOINFORMATICS_COMPLETED,
             created_by=eve,
-            event_at=now - timedelta(days=30),
+            event_date=now - timedelta(days=30),
         )
         s2_5 = State.objects.create(
             case=case2,
             status=CaseStatus.CURATION_COMPLETED,
             created_by=eve,
-            event_at=now - timedelta(days=15),
+            event_date=now - timedelta(days=15),
         )
         s2_6 = State.objects.create(
             case=case2,
             status=CaseStatus.COMPLETED,
             created_by=john,
-            event_at=now - timedelta(days=5),
+            event_date=now - timedelta(days=5),
         )
 
         Comment.objects.create(
@@ -213,49 +220,49 @@ class Command(BaseCommand):
 
         # ── Case 3: ctTSO Clinical — curation in progress ─────────────────────
         case3 = Case.objects.create(
-            title="SBJ00003-ctTSO-Clinical",
+            request_form_id="mock-case-003",
             description="ctTSO550 clinical case for subject SBJ00003",
             type=CaseType.CTTSO,
             study_type=CaseStudyType.CLINICAL,
             is_report_required=True,
             is_nata_accredited=True,
-            trello_url="https://trello.com/c/mock003",
+            links={"trello": "https://trello.com/c/mock003"},
             alias=["SBJ00003"],
         )
-        case3.user_set.add(alice, through_defaults={"description": "Case Owner"})
-        case3.user_set.add(charlie, through_defaults={"description": "Curator"})
-        case3.external_entity_set.add(lib_004)
-        case3.external_entity_set.add(idv_001)
+        CaseUserLink.objects.create(case=case3, user=alice, description="Case Owner")
+        CaseUserLink.objects.create(case=case3, user=charlie, description="Curator")
+        CaseExternalEntityLink.objects.create(case=case3, external_entity=lib_004)
+        CaseExternalEntityLink.objects.create(case=case3, external_entity=idv_001)
 
         s3_1 = State.objects.create(
             case=case3,
             status=CaseStatus.REQUEST_RECEIVED,
             created_by=alice,
-            event_at=now - timedelta(days=20),
+            event_date=now - timedelta(days=20),
         )
         s3_2 = State.objects.create(
             case=case3,
-            status=CaseStatus.SAMPLE_RECEIVED,
+            status=CaseStatus.CTTSO_SAMPLE_RECEIVED,
             created_by=alice,
-            event_at=now - timedelta(days=18),
+            event_date=now - timedelta(days=18),
         )
         s3_3 = State.objects.create(
             case=case3,
             status=CaseStatus.SEQUENCING_COMPLETED,
             created_by=bob,
-            event_at=now - timedelta(days=12),
+            event_date=now - timedelta(days=12),
         )
         s3_4 = State.objects.create(
             case=case3,
             status=CaseStatus.BIOINFORMATICS_COMPLETED,
             created_by=bob,
-            event_at=now - timedelta(days=7),
+            event_date=now - timedelta(days=7),
         )
         s3_5 = State.objects.create(
             case=case3,
             status=CaseStatus.CURATION_STARTED,
             created_by=charlie,
-            event_at=now - timedelta(days=3),
+            event_date=now - timedelta(days=3),
         )
 
         Comment.objects.create(
@@ -278,7 +285,7 @@ class Command(BaseCommand):
 
         # ── Case 4: WGTS Clinical — failed with library issue ──────────────────
         case4 = Case.objects.create(
-            title="SBJ00004-WGTS-Clinical-Failed",
+            request_form_id="mock-case-004",
             description="WGTS clinical case that failed due to library prep issues",
             type=CaseType.WGTS,
             study_type=CaseStudyType.CLINICAL,
@@ -286,33 +293,33 @@ class Command(BaseCommand):
             is_nata_accredited=True,
             alias=["SBJ00004"],
         )
-        case4.user_set.add(bob, through_defaults={"description": "Case Owner"})
-        case4.external_entity_set.add(lib_001)
-        case4.external_entity_set.add(idv_002)
+        CaseUserLink.objects.create(case=case4, user=bob, description="Case Owner")
+        CaseExternalEntityLink.objects.create(case=case4, external_entity=lib_001)
+        CaseExternalEntityLink.objects.create(case=case4, external_entity=idv_002)
 
         s4_1 = State.objects.create(
             case=case4,
             status=CaseStatus.REQUEST_RECEIVED,
             created_by=bob,
-            event_at=now - timedelta(days=10),
+            event_date=now - timedelta(days=10),
         )
         s4_2 = State.objects.create(
             case=case4,
-            status=CaseStatus.SAMPLE_RECEIVED,
+            status=CaseStatus.WGTS_TUMOUR_SAMPLE_RECEIVED,
             created_by=bob,
-            event_at=now - timedelta(days=9),
+            event_date=now - timedelta(days=9),
         )
         s4_3 = State.objects.create(
             case=case4,
             status=CaseStatus.LIBRARY_PARTIALLY_FAILED,
             created_by=bob,
-            event_at=now - timedelta(days=7),
+            event_date=now - timedelta(days=7),
         )
         s4_4 = State.objects.create(
             case=case4,
             status=CaseStatus.FAILED,
             created_by=bob,
-            event_at=now - timedelta(days=5),
+            event_date=now - timedelta(days=5),
         )
 
         Comment.objects.create(
@@ -330,7 +337,7 @@ class Command(BaseCommand):
 
         # ── Case 5: ctTSO Research — just received ─────────────────────────────
         case5 = Case.objects.create(
-            title="SBJ00005-ctTSO-Research",
+            request_form_id="mock-case-005",
             description="ctTSO research case for novel biomarker study",
             type=CaseType.CTTSO,
             study_type=CaseStudyType.RESEARCH,
@@ -338,18 +345,18 @@ class Command(BaseCommand):
             is_nata_accredited=False,
             alias=["SBJ00005", "STUDY-BIOMARKER-42"],
         )
-        case5.user_set.add(eve, through_defaults={"description": "Case Owner"})
-        case5.user_set.add(
-            charlie, through_defaults={"description": "Bioinformatician"}
+        CaseUserLink.objects.create(case=case5, user=eve, description="Case Owner")
+        CaseUserLink.objects.create(
+            case=case5, user=charlie, description="Bioinformatician"
         )
-        case5.external_entity_set.add(lib_002)
-        case5.external_entity_set.add(seq_001)
+        CaseExternalEntityLink.objects.create(case=case5, external_entity=lib_002)
+        CaseExternalEntityLink.objects.create(case=case5, external_entity=seq_001)
 
         s5_1 = State.objects.create(
             case=case5,
             status=CaseStatus.REQUEST_RECEIVED,
             created_by=eve,
-            event_at=now - timedelta(days=2),
+            event_date=now - timedelta(days=2),
         )
 
         Comment.objects.create(
