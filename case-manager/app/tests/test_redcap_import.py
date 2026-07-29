@@ -138,9 +138,7 @@ class UpsertCaseFromRedcapRecordIdempotencyTest(TestCase):
         upsert_case_from_redcap_record(self.record)
         upsert_case_from_redcap_record(self.record)
 
-        self.assertEqual(
-            Case.objects.filter(request_form_id="case-001").count(), 1
-        )
+        self.assertEqual(Case.objects.filter(request_form_id="case-001").count(), 1)
 
     def test_syncing_twice_produces_one_state_per_status(self):
         """
