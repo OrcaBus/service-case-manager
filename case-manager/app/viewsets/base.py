@@ -22,7 +22,7 @@ class BaseViewSet(ReadOnlyModelViewSet, ABC):
     http_method_names = ["get", "post", "patch", "delete"]
 
 
-class BaseViewSetWithHistory(BaseViewSet, CreateModelMixin, UpdateModelMixin):
+class BaseViewSetWithHistory(BaseViewSet, UpdateModelMixin):
     """The BaseViewSetWithHistory is a base viewset that includes the retrieve_history method and overrides hooks
     to set the _history_user."""
 
