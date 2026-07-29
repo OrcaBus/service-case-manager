@@ -1,6 +1,5 @@
 from django.core.management import BaseCommand
-from django.utils import timezone
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone as dt_timezone
 
 from app.tests.utils import clear_all_data
 from app.models import Case, User, State, Comment, ExternalEntity
@@ -76,7 +75,7 @@ class Command(BaseCommand):
             f"Created {ExternalEntity.objects.count()} external entities."
         )
 
-        now = timezone.now()
+        now = datetime(2024, 1, 1, tzinfo=dt_timezone.utc)
 
         # ── Case 1: WGTS Clinical — in bioinformatics ──────────────────────────
         case1 = Case.objects.create(

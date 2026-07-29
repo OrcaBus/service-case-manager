@@ -80,7 +80,7 @@ class State(BaseModel):
         blank=False,
         null=False,
         default=timezone.now,
-        help_text="When the event actually occurred. May differ from created_at for retrospective entries.",
+        help_text="When the event date actually occurred. May differ from created_at for retrospective entries.",
     )
     event_time = models.TimeField(
         blank=True,
