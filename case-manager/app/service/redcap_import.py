@@ -4,17 +4,27 @@ import boto3
 import requests
 
 from typing import Optional
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, date, time, timezone, timedelta
 from zoneinfo import ZoneInfo
 from django.db import transaction
 
-from app.models import Case, ExternalSyncLog
+from app.models import Case, ExternalSyncLog, State, User
+from app.models.case import CaseType, CaseStudyType
+from app.models.state import CaseStatus
 
 logger = logging.getLogger(__name__)
 
 REDCAP_ENDPOINT = "https://redcap.unimelb.edu.au/api/"
 REDCAP_TOKEN_PARAMETER_NAME = os.environ.get("REDCAP_TOKEN_PARAMETER_NAME", "")
 REQUEST_TIMEOUT = 30  # seconds
+
+# System user attributed as `created_by` for states written by this import.
+REDCAP_SYSTEM_USER_EMAIL = "system@orcabus.org"
+
+# Case-sensitive study_names that get shorter turnaround for the report due date.
+SHORT_TURNAROUND_STUDY_NAMES = {"ASPi2L", "OCEANiC"}
+SHORT_TURNAROUND_WEEKS = 3
+DEFAULT_TURNAROUND_WEEKS = 4
 
 _redcap_token: Optional[str] = None
 
@@ -53,6 +63,14 @@ def _build_payload(**extra_fields) -> dict:
         "format": "json",
         "fields[0]": "request_id",
         "fields[1]": "rf_test_requested",
+        "fields[2]": "rf_study",
+        "fields[3]": "rf_study_id",
+        "fields[4]": "rf_ur",  # UR number
+        "fields[5]": "nata_accred_report",
+        "fields[6]": "cttso_receipt_date",
+        "fields[7]": "cttso_receipt_time",
+        "fields[9]": "tumour_receipt_date",
+        "fields[10]": "germline_receipt_date",
         **extra_fields,
     }
 
@@ -88,48 +106,152 @@ def get_redcap_record_by_filter(filter_logic: str) -> list[dict]:
     return _post(payload)
 
 
-def get_case_value(field_name: str, record: dict[str, str]) -> str:
-    """Extract a case field value from a REDCap record."""
-    if field_name == "request_form_id":
-        if "request_id" not in record:
-            raise KeyError("Missing 'request_id' in REDCap record.")
-        return record["request_id"]
-    if field_name == "case_type":
-        rf_val = record.get("rf_test_requested")
-        if rf_val is None:
-            raise KeyError("Missing 'rf_test_requested' in REDCap record.")
-        accepted_values = [c[0] for c in Case.type.field.choices]
-        if rf_val not in accepted_values:
-            raise ValueError(f"Unknown rf_test_requested value: {rf_val}")
-        return rf_val
-    raise Exception(f"Unknown field {field_name}")
+def _get_redcap_system_user() -> User:
+    """The system user attributed as `created_by` for states written by this import."""
+    user, _ = User.objects.get_or_create(email=REDCAP_SYSTEM_USER_EMAIL)
+    return user
 
 
+def _parse_date(value: Optional[str]) -> Optional[date]:
+    if not value:
+        return None
+    return datetime.strptime(value, "%Y-%m-%d").date()
+
+
+def _parse_time(value: Optional[str]) -> Optional[time]:
+    if not value:
+        return None
+    return datetime.strptime(value, "%H:%M").time()
+
+
+def _add_state_if_new(
+    case: Case,
+    status: CaseStatus,
+    event_date: date,
+    event_time: Optional[time] = None,
+) -> Optional[State]:
+    """
+    Create a State for `case` unless one with the same status/event_date already
+    exists (REDCap sync windows overlap on re-run, so this keeps it idempotent).
+    """
+    if State.objects.filter(case=case, status=status, event_date=event_date).exists():
+        return None
+
+    return State.objects.create(
+        case=case,
+        status=status,
+        event_date=event_date,
+        event_time=event_time,
+        created_by=_get_redcap_system_user(),
+    )
+
+
+@transaction.atomic
 def upsert_case_from_redcap_record(record: dict[str, str]) -> Case:
     """Upsert a Case from REDCap record fields."""
 
-    request_form_id = get_case_value("request_form_id", record)
-    case_type = get_case_value("case_type", record)
+    request_form_id = record.get("request_id")
+    if request_form_id is None:
+        raise KeyError("Missing 'request_id' in REDCap record.")
 
-    try:
-        case = Case.objects.get(request_form_id=request_form_id)
-        if case.type != case_type:
-            logger.info(
-                f"Updating case {request_form_id}: type {case.type} -> {case_type}"
-            )
-            case.type = case_type
-            case.save()
-        else:
-            logger.debug(f"No update needed for case {request_form_id}")
-        return case
-    except Case.DoesNotExist:
-        logger.info(f"Creating new case {request_form_id} with type {case_type}")
-        case = Case(
-            request_form_id=request_form_id, type=case_type, study_type="clinical"
+    # REDCap has no concept of "research" cases — anything sourced from REDCap
+    # is always clinical. Research cases are created via some other pathway.
+    data: dict[str, str | bool] = {
+        "request_form_id": request_form_id,
+        "study_type": CaseStudyType.CLINICAL,
+    }
+
+    case_type = record.get("rf_test_requested")
+    if case_type is not None:
+        accepted_values = [c[0] for c in Case.type.field.choices]
+        if case_type not in accepted_values:
+            raise ValueError(f"Unknown rf_test_requested value: {case_type}")
+        data["type"] = case_type
+
+    study_name = record.get("rf_study")
+    if study_name is not None:
+        data["study_name"] = study_name
+
+    study_id = record.get("rf_study_id")
+    if study_id is not None:
+        data["study_id"] = study_id
+
+    ur_number = record.get("rf_ur")
+    if ur_number is not None:
+        data["ur_number"] = ur_number
+
+    # 0 = False, 1 = True
+    nata_accred_report = record.get("nata_accred_report")
+    if nata_accred_report is not None:
+        data["is_nata_accredited"] = nata_accred_report == "1"
+    case, is_created, is_updated = Case.objects.update_or_create_if_needed(
+        {"request_form_id": request_form_id},
+        data,
+        change_reason="REDCap sync",
+    )
+
+    # Add states for samples
+    cttso_receipt_date = _parse_date(record.get("cttso_receipt_date"))
+    if cttso_receipt_date:
+        _add_state_if_new(
+            case,
+            CaseStatus.CTTSO_SAMPLE_RECEIVED,
+            event_date=cttso_receipt_date,
+            event_time=_parse_time(record.get("cttso_receipt_time")),
         )
-        case.save()
 
-        return case
+    tumour_receipt_date = _parse_date(record.get("tumour_receipt_date"))
+    if tumour_receipt_date:
+        _add_state_if_new(
+            case,
+            CaseStatus.WGTS_TUMOUR_SAMPLE_RECEIVED,
+            event_date=tumour_receipt_date,
+        )
+
+    germline_receipt_date = _parse_date(record.get("germline_receipt_date"))
+    if germline_receipt_date:
+        _add_state_if_new(
+            case,
+            CaseStatus.WGTS_GERMLINE_SAMPLE_RECEIVED,
+            event_date=germline_receipt_date,
+        )
+
+    # All samples in for this case type -> add terminal intake state, dated after
+    # the last contributing sample so it lands at the end of the case's states.
+    all_sample_received_at = None
+    if case.type == CaseType.CTTSO and cttso_receipt_date:
+        all_sample_received_at = cttso_receipt_date
+    elif case.type == CaseType.WGS_N and germline_receipt_date:
+        all_sample_received_at = germline_receipt_date
+    elif case.type == CaseType.WGTS and germline_receipt_date and tumour_receipt_date:
+        all_sample_received_at = max(germline_receipt_date, tumour_receipt_date)
+
+    if all_sample_received_at:
+        _add_state_if_new(
+            case,
+            CaseStatus.ALL_SAMPLE_RECEIVED,
+            event_date=all_sample_received_at,
+        )
+
+        # Only set once, only set if unset (possibility set manually beforehand)
+        if not case.due_date:
+            weeks = (
+                SHORT_TURNAROUND_WEEKS
+                if case.study_name in SHORT_TURNAROUND_STUDY_NAMES
+                else DEFAULT_TURNAROUND_WEEKS
+            )
+            case.due_date = all_sample_received_at + timedelta(weeks=weeks)
+            case._change_reason = "REDCap sync: due date set on all sample received"
+            case.save()
+
+    if is_created:
+        logger.info(f"Created case for request_form_id={request_form_id}")
+    elif is_updated:
+        logger.info(f"Updated case for request_form_id={request_form_id}")
+    else:
+        logger.debug(f"No change for case request_form_id={request_form_id}")
+
+    return case
 
 
 def upsert_redcap_records_by_date_range(

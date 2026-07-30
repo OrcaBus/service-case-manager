@@ -232,7 +232,11 @@ class CaseViewSet(BaseViewSetWithHistory, CaseLinkMixin):
         pk = self.kwargs.get("pk")
 
         case_obj = get_object_or_404(self.queryset, pk=pk)
-        states = State.objects.filter(case=case_obj).order_by("-event_at").all()
+        states = (
+            State.objects.filter(case=case_obj)
+            .order_by("-event_date", "-event_time", "-orcabus_id")
+            .all()
+        )
 
         page = self.paginate_queryset(states)
         serializer = StateSerializer(page, many=True)

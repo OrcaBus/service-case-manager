@@ -10,4 +10,4 @@ class Command(BaseCommand):
     """
 
     def handle(self, *args, **options):
-        handler(event={"after_date": "2026-05-08"}, _context=None)
+        handler(event={"after_date": "2026-07-27"}, _context=None)
