@@ -11,8 +11,8 @@ class StateSerializer(ModelSerializer):
     class Meta(OrcabusIdSerializerMetaMixin):
         model = State
         fields = "__all__"
-        ordering = ["-timestamp"]
-        read_only_fields = ["created_at", "created_by", "archived_at", "archived_by"]
+        # Default deny: any field not in State.API_WRITABLE_FIELDS is read-only.
+        read_only_fields = State.get_read_only_fields()
 
     def get_created_by(self, obj) -> str | None:
         return obj.created_by.email if obj.created_by else None
@@ -32,7 +32,8 @@ class StateDetailSerializer(ModelSerializer):
     class Meta(OrcabusIdSerializerMetaMixin):
         model = State
         fields = "__all__"
-        read_only_fields = ["created_at", "created_by", "archived_at", "archived_by"]
+        # Default deny: any field not in State.API_WRITABLE_FIELDS is read-only.
+        read_only_fields = State.get_read_only_fields()
 
     def get_created_by(self, obj) -> str | None:
         return obj.created_by.email if obj.created_by else None

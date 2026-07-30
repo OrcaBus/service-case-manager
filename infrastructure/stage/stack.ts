@@ -15,6 +15,8 @@ import {
 import { EventSchemaConstruct } from './construct/event-schema';
 import { LambdaRedCapImportConstruct } from './construct/lambda-redcap-import';
 import { LambdaMetadataEntityLinkConstruct } from './construct/lambda-metadata-linking';
+import { LambdaWorkflowRunEntityLinkConstruct } from './construct/lambda-workflow-run-linking';
+import { LambdaSequenceRunEntityLinkConstruct } from './construct/lambda-sequence-run-linking';
 
 export type CaseManagerStackProps = {
   /**
@@ -110,6 +112,14 @@ export class CaseManagerStack extends Stack {
     new EventSchemaConstruct(this, 'EventSchema');
 
     new LambdaMetadataEntityLinkConstruct(this, 'LambdaMetadataEntityLink', {
+      basicLambdaConfig: basicLambdaConfig,
+    });
+
+    new LambdaWorkflowRunEntityLinkConstruct(this, 'LambdaWorkflowRunEntityLink', {
+      basicLambdaConfig: basicLambdaConfig,
+    });
+
+    new LambdaSequenceRunEntityLinkConstruct(this, 'LambdaSequenceRunEntityLink', {
       basicLambdaConfig: basicLambdaConfig,
     });
   }

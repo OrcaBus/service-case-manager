@@ -25,6 +25,8 @@ class CaseSerializer(ModelSerializer):
     class Meta(OrcabusIdSerializerMetaMixin):
         model = Case
         exclude = ["user_set", "external_entity_set"]
+        # Default deny: any field not in Case.API_WRITABLE_FIELDS is read-only.
+        read_only_fields = Case.get_read_only_fields()
 
 
 class CaseExternalEntityLinkSerializer(ModelSerializer):
@@ -64,12 +66,18 @@ class CaseDetailSerializer(ModelSerializer):
     class Meta(OrcabusIdSerializerMetaMixin):
         model = Case
         fields = "__all__"
+        # Default deny: any field not in Case.API_WRITABLE_FIELDS is read-only.
+        read_only_fields = Case.get_read_only_fields()
 
     @extend_schema_field(StateSerializer(allow_null=True))
     def get_latest_state(self, obj):
         from .state import StateSerializer
 
-        state = obj.state_set.order_by("-event_at").first()
+        state = (
+            obj.state_set.filter(is_archived=False)
+            .order_by("-event_date", "-event_time", "-orcabus_id")
+            .first()
+        )
         if state:
             return StateSerializer(state).data
         return None
@@ -82,6 +90,12 @@ class CaseExternalEntityLinkCreateSerializer(ModelSerializer):
     class Meta:
         model = CaseExternalEntityLink
         fields = "__all__"
+
+
+class CaseSequenceRunLinkCreateSerializer(Serializer):
+    sequence_run_id = CharField(
+        help_text="The sequenceRunId (alias) of the sequence run to link, e.g. 'r.uY6hEBUmv5x5XUDhkNVxtY'."
+    )
 
 
 class CaseUserCreateSerializer(ModelSerializer):
