@@ -22,7 +22,6 @@ from app.models.state import CaseStatus
 
 logger = logging.getLogger(__name__)
 
-
 REDCAP_ENDPOINT = "https://redcap.unimelb.edu.au/api/"
 REDCAP_TOKEN_PARAMETER_NAME = os.environ.get("REDCAP_TOKEN_PARAMETER_NAME", "")
 REQUEST_TIMEOUT = 30  # seconds
@@ -263,6 +262,7 @@ def upsert_case_from_redcap_record(record: dict[str, str]) -> Case:
     return case
 
 
+@transaction.atomic
 def resolve_sample_links_from_redcap_record(case: Case, record: dict[str, str]) -> None:
     """
     For each sample ID found in the REDCap record:

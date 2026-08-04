@@ -230,6 +230,7 @@ def process_record(body: dict) -> None:
         return
 
     # --- Path 2: sample-based linking (requestFormId absent or "nan") ---
+    # Sample will also be linked
     _process_sample_based_linking(data)
 
 
