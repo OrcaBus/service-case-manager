@@ -67,7 +67,7 @@ class LinkCaseToExternalEntityAndEmitTestCase(TestCase):
         self.assertEqual(event.action, Action.CREATE)
         self.assertEqual(event.refId, str(link.pk))
 
-        # Event payload contains case and external entity data
+        # Event payload contains full case and external entity data
         self.assertEqual(str(event.case["orcabus_id"]), str(self.case.orcabus_id))
         self.assertEqual(event.case["request_form_id"], self.case.request_form_id)
         self.assertEqual(
@@ -78,6 +78,7 @@ class LinkCaseToExternalEntityAndEmitTestCase(TestCase):
         self.assertEqual(
             event.externalEntity["service_name"], self.external_entity.service_name
         )
+        self.assertEqual(event.externalEntity["type"], self.external_entity.type)
 
 
 class UnlinkCaseToExternalEntityAndEmitTestCase(TestCase):
@@ -123,7 +124,7 @@ class UnlinkCaseToExternalEntityAndEmitTestCase(TestCase):
         self.assertEqual(event.action, Action.DELETE)
         self.assertEqual(event.refId, link_pk)
 
-        # Event payload contains case and external entity data (captured before deletion)
+        # Event payload contains full case and external entity data (captured before deletion)
         self.assertEqual(str(event.case["orcabus_id"]), str(self.case.orcabus_id))
         self.assertEqual(event.case["request_form_id"], self.case.request_form_id)
         self.assertEqual(
