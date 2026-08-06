@@ -109,9 +109,7 @@ class UnlinkCaseToExternalEntityAndEmitTestCase(TestCase):
         )
 
         # DB record removed
-        self.assertFalse(
-            CaseExternalEntityLink.objects.filter(pk=link_pk).exists()
-        )
+        self.assertFalse(CaseExternalEntityLink.objects.filter(pk=link_pk).exists())
 
         # Event emitted once with correct detail_type
         mock_emit.assert_called_once()

@@ -204,7 +204,9 @@ def get_or_create_entities_by_sample_id(
         sample_entity, created = ExternalEntity.objects.get_or_create(
             orcabus_id=sample_orcabus_id,
             defaults={
-                "prefix": sample_orcabus_id.split(".")[0] if "." in sample_orcabus_id else "",
+                "prefix": (
+                    sample_orcabus_id.split(".")[0] if "." in sample_orcabus_id else ""
+                ),
                 "type": "sample",
                 "service_name": "metadata",
                 "alias": sample_data.get("sampleId", sample_id),
@@ -228,7 +230,11 @@ def get_or_create_entities_by_sample_id(
         library_entity, created = ExternalEntity.objects.get_or_create(
             orcabus_id=library_orcabus_id,
             defaults={
-                "prefix": library_orcabus_id.split(".")[0] if "." in library_orcabus_id else "",
+                "prefix": (
+                    library_orcabus_id.split(".")[0]
+                    if "." in library_orcabus_id
+                    else ""
+                ),
                 "type": "library",
                 "service_name": "metadata",
                 "alias": library_id,

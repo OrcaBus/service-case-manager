@@ -42,9 +42,9 @@ def link_case_to_external_entity_and_emit(
     case_entity_link.save()
 
     case_data = dict(CaseSerializer(case_entity_link.case).data)
-    external_entity_data = dict(ExternalEntitySerializer(
-        case_entity_link.external_entity
-    ).data)
+    external_entity_data = dict(
+        ExternalEntitySerializer(case_entity_link.external_entity).data
+    )
 
     relationship_change_event = CaseRelationshipStateChange(
         action=Action.CREATE,
@@ -71,9 +71,9 @@ def unlink_case_to_external_entity_and_emit(
     """
     # Serialize before deletion so the data is still accessible
     case_data = dict(CaseSerializer(case_external_entity.case).data)
-    external_entity_data = dict(ExternalEntitySerializer(
-        case_external_entity.external_entity
-    ).data)
+    external_entity_data = dict(
+        ExternalEntitySerializer(case_external_entity.external_entity).data
+    )
     link_id = str(case_external_entity.pk)
     timestamp = case_external_entity.timestamp.isoformat()
 

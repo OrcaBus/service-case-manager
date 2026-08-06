@@ -94,9 +94,7 @@ class ResolveSampleLinksNoExternalEntityTest(TestCase):
             "wts_sample_id": "",  # intentionally blank
         }
         # Metadata service has no matching sample for either alias in this test.
-        patcher = patch(
-            "app.service.redcap_import.get_or_create_entities_by_sample_id"
-        )
+        patcher = patch("app.service.redcap_import.get_or_create_entities_by_sample_id")
         self.mock_lookup = patcher.start()
         self.mock_lookup.return_value = (None, [])
         self.addCleanup(patcher.stop)
@@ -210,9 +208,7 @@ class ResolveSampleLinksMixedTest(TestCase):
             "wts_sample_id": "",
         }
         # Metadata service has no match for the unresolved alias in this test.
-        patcher = patch(
-            "app.service.redcap_import.get_or_create_entities_by_sample_id"
-        )
+        patcher = patch("app.service.redcap_import.get_or_create_entities_by_sample_id")
         self.mock_lookup = patcher.start()
         self.mock_lookup.return_value = (None, [])
         self.addCleanup(patcher.stop)
@@ -318,7 +314,6 @@ class ResolveSampleLinksEdgeCasesTest(TestCase):
                 resolve_sample_links_from_redcap_record(case_b, record)
 
 
-
 class ResolveSampleLinksMetadataLookupTest(TestCase):
     """
     New behaviour: when no local ExternalEntity matches the alias, the metadata
@@ -343,9 +338,7 @@ class ResolveSampleLinksMetadataLookupTest(TestCase):
             "rf_test_requested": CaseType.CTTSO,
             "cttso_sample_id": self.sample_alias,
         }
-        patcher = patch(
-            "app.service.redcap_import.get_or_create_entities_by_sample_id"
-        )
+        patcher = patch("app.service.redcap_import.get_or_create_entities_by_sample_id")
         self.mock_lookup = patcher.start()
         self.addCleanup(patcher.stop)
 

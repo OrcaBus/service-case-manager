@@ -311,7 +311,9 @@ def resolve_sample_links_from_redcap_record(case: Case, record: dict[str, str]) 
             )
         else:
             # Entity not in our DB yet — check the metadata service before queuing as pending
-            sample_entity, library_entities = get_or_create_entities_by_sample_id(sample_id)
+            sample_entity, library_entities = get_or_create_entities_by_sample_id(
+                sample_id
+            )
 
             if sample_entity or library_entities:
                 # link all entities to the case
