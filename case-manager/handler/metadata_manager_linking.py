@@ -80,13 +80,16 @@ def _process_sample_based_linking(data: dict) -> None:
 
     Steps:
     1. Look up sample.sampleId in ExternalEntity (already resolved) and/or
-       PendingExternalEntity (waiting for orcabusId).
-    2a. If found in neither table and sample.orcabusId is present, upsert the
-        sample ExternalEntity directly from the payload (self-healing path).
-    2b. If found in PendingExternalEntity, promote it to a real ExternalEntity
-        using sample.orcabusId and link the sample to the pending record's case.
-    3. Upsert the library ExternalEntity from payload fields (always) and link it to
-       the resolved case if one was found.
+       PendingExternalEntity (waiting for orcabusId). If found in neither,
+       raise ObjectDoesNotExist so SQS retries — metadata manager will be
+       queried when the sample is ready.
+    2. If found in PendingExternalEntity, promote it to a real ExternalEntity
+       using sample.orcabusId and link the sample to the pending record's case.
+    3. Only if a case was resolved in step 1/2, upsert the library ExternalEntity
+       from payload fields and link it to that case. If no case could be resolved
+       (e.g. the sample entity exists but isn't linked to any case, or the pending
+       entity has no sample.orcabusId yet), the library entity is NOT created —
+       it will be upserted on a later, successful delivery once the case is known.
     """
     library_orcabus_id = data.get("orcabusId")
     library_id = data.get("libraryId")
@@ -131,26 +134,9 @@ def _process_sample_based_linking(data: dict) -> None:
     pending_sample_entity = pending_qs.select_related("case").first()
 
     if not resolved_sample_entity and not pending_sample_entity:
-        if not sample_orcabus_id:
-            raise ObjectDoesNotExist(
-                f"Sample '{sample_id}' not found in ExternalEntity or PendingExternalEntity "
-                f"and no sample.orcabusId in payload — case not ready yet, will retry."
-            )
-        sample_prefix = (
-            sample_orcabus_id.split(".")[0] if "." in sample_orcabus_id else None
-        )
-        resolved_sample_entity, created = ExternalEntity.objects.update_or_create(
-            orcabus_id=sample_orcabus_id,
-            defaults={
-                "prefix": sample_prefix,
-                "type": "sample",
-                "service_name": "metadata",
-                "alias": sample_id,
-            },
-        )
-        action = "Created" if created else "Updated"
-        logger.info(
-            f"{action} sample ExternalEntity: {sample_orcabus_id} (alias={sample_id})"
+        raise ObjectDoesNotExist(
+            f"Sample '{sample_id}' not found in ExternalEntity or PendingExternalEntity — "
+            f"case not ready yet, will retry."
         )
 
     case: Case | None = None
@@ -166,6 +152,7 @@ def _process_sample_based_linking(data: dict) -> None:
         )
         if case_link:
             case = case_link.case
+            _link_entity_to_case(case, resolved_sample_entity, label="sample")
         else:
             logger.warning(
                 f"Sample ExternalEntity '{sample_id}' exists but is not linked to any case — skipping."
@@ -206,14 +193,15 @@ def _process_sample_based_linking(data: dict) -> None:
             f"Deleted PendingExternalEntity for sample '{sample_id}' on case '{case.orcabus_id}'"
         )
 
-    # Always upsert the library ExternalEntity — pre-registers it even if no case is resolved yet.
-    library_entity = _upsert_library_external_entity(library_orcabus_id, library_id)
-
     if case is None:
+        # No case resolved yet (orphaned sample entity, or pending entity still missing
+        # sample.orcabusId) — skip creating the library entity too. It will be upserted
+        # on a later delivery once the case can be resolved.
         logger.warning(
-            f"No case resolved for sample '{sample_id}' — library entity upserted but not linked."
+            f"No case resolved for sample '{sample_id}' — library entity not upserted or linked."
         )
         return
+    library_entity = _upsert_library_external_entity(library_orcabus_id, library_id)
     _link_entity_to_case(case, library_entity, label="library")
 
 

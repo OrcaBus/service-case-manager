@@ -19,6 +19,7 @@ from app.models.case import CaseType
 from app.models import Case, ExternalSyncLog, State, User
 from app.models.case import CaseType, CaseStudyType
 from app.models.state import CaseStatus
+from app.service.external_entity import get_or_create_entities_by_sample_id
 
 logger = logging.getLogger(__name__)
 
@@ -309,19 +310,37 @@ def resolve_sample_links_from_redcap_record(case: Case, record: dict[str, str]) 
                 sample_id,
             )
         else:
-            # Entity not yet known — queue a pending link for later resolution
-            _, created = PendingExternalEntity.objects.get_or_create(
-                case=case,
-                service_name="metadata",
-                type="sample",
-                alias=sample_id,
-            )
-            logger.info(
-                "case=%s: %s PendingExternalEntity for alias=%s",
-                case.request_form_id,
-                "queued" if created else "already pending",
-                sample_id,
-            )
+            # Entity not in our DB yet — check the metadata service before queuing as pending
+            sample_entity, library_entities = get_or_create_entities_by_sample_id(sample_id)
+
+            if sample_entity or library_entities:
+                # link all entities to the case
+                for entity in filter(None, [sample_entity, *library_entities]):
+                    _, created = CaseExternalEntityLink.objects.get_or_create(
+                        case=case,
+                        external_entity=entity,
+                    )
+                    logger.info(
+                        "case=%s: %s ExternalEntity link (via metadata lookup) for alias=%s type=%s",
+                        case.request_form_id,
+                        "created" if created else "existing",
+                        entity.alias,
+                        entity.type,
+                    )
+            else:
+                # Sample does not exist in the metadata service yet — queue for later resolution
+                _, created = PendingExternalEntity.objects.get_or_create(
+                    case=case,
+                    service_name="metadata",
+                    type="sample",
+                    alias=sample_id,
+                )
+                logger.info(
+                    "case=%s: %s PendingExternalEntity for alias=%s",
+                    case.request_form_id,
+                    "queued" if created else "already pending",
+                    sample_id,
+                )
 
 
 def upsert_redcap_records_by_date_range(
