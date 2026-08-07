@@ -193,7 +193,9 @@ def get_or_create_entities_by_sample_id(
 
     results = response.json()["results"]
     if len(results) > 1:
-        return None, None
+        raise ValueError(
+            f"Metadata lookup for sampleId '{sample_id}' returned {len(results)} results; expected at most 1."
+        )
 
     sample_data = results[0]
     sample_orcabus_id = sample_data.get("orcabusId")

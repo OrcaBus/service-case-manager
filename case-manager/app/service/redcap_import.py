@@ -9,13 +9,10 @@ from zoneinfo import ZoneInfo
 from django.db import transaction
 
 from app.models import (
-    Case,
     CaseExternalEntityLink,
-    ExternalSyncLog,
     PendingExternalEntity,
     ExternalEntity,
 )
-from app.models.case import CaseType
 from app.models import Case, ExternalSyncLog, State, User
 from app.models.case import CaseType, CaseStudyType
 from app.models.state import CaseStatus

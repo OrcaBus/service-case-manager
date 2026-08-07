@@ -148,6 +148,7 @@ def _process_sample_based_linking(data: dict) -> None:
                 external_entity=resolved_sample_entity
             )
             .select_related("case")
+            .order_by("-timestamp")
             .first()
         )
         if case_link:
