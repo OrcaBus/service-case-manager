@@ -1,3 +1,4 @@
+from functools import partial
 from typing import Literal, Any, List, TypedDict, cast
 
 from django.db import transaction
@@ -56,7 +57,8 @@ def link_case_to_external_entity_and_emit(
 
     # emit event to Event Bridge only after the transaction commits successfully
     transaction.on_commit(
-        lambda: emit_event(
+        partial(
+            emit_event,
             detail_type=DetailType.CaseRelationshipStateChange.value,
             event_detail_model=relationship_change_event,
         )
@@ -93,7 +95,8 @@ def unlink_case_to_external_entity_and_emit(
     )
     # emit event to Event Bridge only after the transaction commits successfully
     transaction.on_commit(
-        lambda: emit_event(
+        partial(
+            emit_event,
             detail_type=DetailType.CaseRelationshipStateChange.value,
             event_detail_model=relationship_change_event,
         )

@@ -42,11 +42,12 @@ class LinkCaseToExternalEntityAndEmitTestCase(TestCase):
         Linking a case to an external entity should persist the CaseExternalEntityLink
         and emit a CREATE event containing the case and external entity details.
         """
-        link = link_case_to_external_entity_and_emit(
-            case=self.case,
-            external_entity=self.external_entity,
-            history_user="alice@umccr.org",
-        )
+        with self.captureOnCommitCallbacks(execute=True):
+            link = link_case_to_external_entity_and_emit(
+                case=self.case,
+                external_entity=self.external_entity,
+                history_user="alice@umccr.org",
+            )
 
         # DB record created
         self.assertIsNotNone(link.pk)
@@ -103,10 +104,11 @@ class UnlinkCaseToExternalEntityAndEmitTestCase(TestCase):
         """
         link_pk = str(self.link.pk)
 
-        unlink_case_to_external_entity_and_emit(
-            case_external_entity=self.link,
-            history_user="bob@umccr.org",
-        )
+        with self.captureOnCommitCallbacks(execute=True):
+            unlink_case_to_external_entity_and_emit(
+                case_external_entity=self.link,
+                history_user="bob@umccr.org",
+            )
 
         # DB record removed
         self.assertFalse(CaseExternalEntityLink.objects.filter(pk=link_pk).exists())
