@@ -1,3 +1,4 @@
+from functools import partial
 from typing import Literal, Any, List, TypedDict, cast
 
 from django.db import transaction
@@ -21,7 +22,9 @@ from app.serializers.case import (
     CaseHistorySerializer,
     CaseUserLinkSerializer,
     CaseExternalEntityLinkSerializer,
+    CaseSerializer,
 )
+from app.serializers.external_entity import ExternalEntitySerializer
 
 
 @transaction.atomic
@@ -39,25 +42,28 @@ def link_case_to_external_entity_and_emit(
         case_entity_link._history_user = history_user
     case_entity_link.save()
 
-    # TODO: Fix event schema
-    # case_data = CaseSerializer(case_entity_link.case).data
-    # external_entity_data = ExternalEntitySerializer(
-    #     case_entity_link.external_entity
-    # ).data
-    #
-    # relationship_change_event = CaseRelationshipStateChange(
-    #     action=Action.CREATE,
-    #     refId=str(case_entity_link.id),
-    #     timestamp=case_entity_link.timestamp.isoformat(),
-    #     case=case_data,
-    #     externalEntity=external_entity_data,
-    # )
-    #
-    # # emit event to Event Bridge
-    # emit_event(
-    #     detail_type=DetailType.CaseRelationshipStateChange.value,
-    #     event_detail_model=relationship_change_event,
-    # )
+    case_data = dict(CaseSerializer(case_entity_link.case).data)
+    external_entity_data = dict(
+        ExternalEntitySerializer(case_entity_link.external_entity).data
+    )
+
+    relationship_change_event = CaseRelationshipStateChange(
+        action=Action.CREATE,
+        refId=str(case_entity_link.pk),
+        timestamp=case_entity_link.timestamp.isoformat(),
+        case=case_data,
+        externalEntity=external_entity_data,
+    )
+
+    # emit event to Event Bridge only after the transaction commits successfully
+    transaction.on_commit(
+        partial(
+            emit_event,
+            detail_type=DetailType.CaseRelationshipStateChange.value,
+            event_detail_model=relationship_change_event,
+        )
+    )
+
     return case_entity_link
 
 
@@ -68,27 +74,33 @@ def unlink_case_to_external_entity_and_emit(
     """
     Remove the case-external entity relationship and emit an event to the Event Bridge.
     """
+    # Serialize before deletion so the data is still accessible
+    case_data = dict(CaseSerializer(case_external_entity.case).data)
+    external_entity_data = dict(
+        ExternalEntitySerializer(case_external_entity.external_entity).data
+    )
+    link_id = str(case_external_entity.pk)
+    timestamp = case_external_entity.timestamp.isoformat()
+
     if history_user:
         case_external_entity._history_user = history_user
     case_external_entity.delete()
 
-    # TODO: Fix event schema
-    # case_data = CaseSerializer(case_external_entity.case).data
-    # external_entity_data = ExternalEntitySerializer(
-    #     case_external_entity.external_entity
-    # ).data
-    # relationship_change_event = CaseRelationshipStateChange(
-    #     action=Action.DELETE,
-    #     refId=str(case_external_entity.id),
-    #     addedVia=case_external_entity.added_via,
-    #     timestamp=case_external_entity.timestamp.isoformat(),
-    #     case=case_data,
-    #     externalEntity=external_entity_data,
-    # )
-    # emit_event(
-    #     detail_type=DetailType.CaseRelationshipStateChange.value,
-    #     event_detail_model=relationship_change_event,
-    # )
+    relationship_change_event = CaseRelationshipStateChange(
+        action=Action.DELETE,
+        refId=link_id,
+        timestamp=timestamp,
+        case=case_data,
+        externalEntity=external_entity_data,
+    )
+    # emit event to Event Bridge only after the transaction commits successfully
+    transaction.on_commit(
+        partial(
+            emit_event,
+            detail_type=DetailType.CaseRelationshipStateChange.value,
+            event_detail_model=relationship_change_event,
+        )
+    )
     return case_external_entity
 
 

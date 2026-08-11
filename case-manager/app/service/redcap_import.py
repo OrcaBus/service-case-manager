@@ -8,9 +8,15 @@ from datetime import datetime, date, time, timezone, timedelta
 from zoneinfo import ZoneInfo
 from django.db import transaction
 
+from app.models import (
+    CaseExternalEntityLink,
+    PendingExternalEntity,
+    ExternalEntity,
+)
 from app.models import Case, ExternalSyncLog, State, User
 from app.models.case import CaseType, CaseStudyType
 from app.models.state import CaseStatus
+from app.service.external_entity import get_or_create_entities_by_sample_id
 
 logger = logging.getLogger(__name__)
 
@@ -254,6 +260,88 @@ def upsert_case_from_redcap_record(record: dict[str, str]) -> Case:
     return case
 
 
+@transaction.atomic
+def resolve_sample_links_from_redcap_record(case: Case, record: dict[str, str]) -> None:
+    """
+    For each sample ID found in the REDCap record:
+      - If a matching ExternalEntity already exists, create a confirmed CaseExternalEntityLink.
+      - Otherwise, queue a PendingExternalEntity to be resolved later by the originating microservice.
+    Both operations are idempotent (get_or_create).
+    """
+    _CASE_TYPE_SAMPLE_FIELDS: dict[str, tuple[str, ...]] = {
+        CaseType.WGTS: ("tumour_sample_id", "germline_sample_id", "wts_sample_id"),
+        CaseType.CTTSO: ("cttso_sample_id",),
+    }
+
+    sample_fields = _CASE_TYPE_SAMPLE_FIELDS.get(case.type, ())
+    if not sample_fields:
+        logger.debug(
+            "No sample field mapping for case %s type=%s",
+            case.request_form_id,
+            case.type,
+        )
+        return
+
+    for field_name in sample_fields:
+        sample_id = (record.get(field_name) or "").strip()
+        if not sample_id:
+            continue
+
+        # Check if the ExternalEntity is already known (resolved by the microservice)
+        external_entity = ExternalEntity.objects.filter(
+            service_name="metadata",
+            type="sample",
+            alias=sample_id,
+        ).first()
+
+        if external_entity:
+            # Entity is already resolved — create a confirmed link if not already present
+            _, created = CaseExternalEntityLink.objects.get_or_create(
+                case=case,
+                external_entity=external_entity,
+            )
+            logger.info(
+                "case=%s: %s ExternalEntity link for alias=%s",
+                case.request_form_id,
+                "created" if created else "existing",
+                sample_id,
+            )
+        else:
+            # Entity not in our DB yet — check the metadata service before queuing as pending
+            sample_entity, library_entities = get_or_create_entities_by_sample_id(
+                sample_id
+            )
+
+            if sample_entity or library_entities:
+                # link all entities to the case
+                for entity in filter(None, [sample_entity, *library_entities]):
+                    _, created = CaseExternalEntityLink.objects.get_or_create(
+                        case=case,
+                        external_entity=entity,
+                    )
+                    logger.info(
+                        "case=%s: %s ExternalEntity link (via metadata lookup) for alias=%s type=%s",
+                        case.request_form_id,
+                        "created" if created else "existing",
+                        entity.alias,
+                        entity.type,
+                    )
+            else:
+                # Sample does not exist in the metadata service yet — queue for later resolution
+                _, created = PendingExternalEntity.objects.get_or_create(
+                    case=case,
+                    service_name="metadata",
+                    type="sample",
+                    alias=sample_id,
+                )
+                logger.info(
+                    "case=%s: %s PendingExternalEntity for alias=%s",
+                    case.request_form_id,
+                    "queued" if created else "already pending",
+                    sample_id,
+                )
+
+
 def upsert_redcap_records_by_date_range(
     after_date: str, before_date: Optional[str] = None
 ) -> dict:
@@ -271,7 +359,8 @@ def upsert_redcap_records_by_date_range(
     failed = 0
     for record in records:
         try:
-            upsert_case_from_redcap_record(record)
+            case = upsert_case_from_redcap_record(record)
+            resolve_sample_links_from_redcap_record(case, record)
             synced += 1
         except Exception as e:
             logger.error(f"Failed to upsert record {record}: {e}")

@@ -151,6 +151,106 @@ def get_or_create_sequence_run_entity(sequence_run_id: str) -> ExternalEntity:
     return external_entity
 
 
+def get_or_create_entities_by_sample_id(
+    sample_id: str,
+) -> tuple[ExternalEntity | None, list[ExternalEntity] | None]:
+    """
+    Query the metadata service for a sample by sampleId, then get or create ExternalEntity
+    records for the sample and all libraries in its librarySet.
+
+    This mirrors the data shape used by the metadata_manager_linking handler:
+      - sample   → type="sample",  service_name="metadata", alias=sampleId
+      - libraries → type="library", service_name="metadata", alias=libraryId (one per librarySet entry)
+
+    Returns (sample_entity, library_entities) where library_entities is a (possibly empty)
+    list of ExternalEntity records — one per entry in librarySet.
+    Returns (None, []) when the sample is not found (caller should queue a PendingExternalEntity).
+    """
+    jwt_token = get_service_jwt()
+    headers = {"Authorization": f"Bearer {jwt_token}"}
+    domain_name = os.environ["HOSTED_ZONE_NAME"]
+    url = f"https://metadata.{domain_name}/api/v1/sample/"
+
+    try:
+        response = requests.get(url, headers=headers, params={"sampleId": sample_id})
+    except requests.RequestException as e:
+        logger.error(
+            f"Metadata service request failed while looking up sampleId '{sample_id}': {e}"
+        )
+        return None, []
+
+    if response.status_code == 404 or (
+        response.status_code == 200 and not response.json().get("results")
+    ):
+        logger.debug(f"No sample found in metadata service for sampleId '{sample_id}'")
+        return None, []
+
+    if response.status_code != 200:
+        logger.warning(
+            f"Metadata service returned {response.status_code} for sampleId '{sample_id}'"
+        )
+        return None, []
+
+    results = response.json()["results"]
+    if len(results) > 1:
+        raise ValueError(
+            f"Metadata lookup for sampleId '{sample_id}' returned {len(results)} results; expected at most 1."
+        )
+
+    sample_data = results[0]
+    sample_orcabus_id = sample_data.get("orcabusId")
+
+    # --- sample entity ---
+    sample_entity = None
+    if sample_orcabus_id:
+        sample_entity, created = ExternalEntity.objects.get_or_create(
+            orcabus_id=sample_orcabus_id,
+            defaults={
+                "prefix": (
+                    sample_orcabus_id.split(".")[0] if "." in sample_orcabus_id else ""
+                ),
+                "type": "sample",
+                "service_name": "metadata",
+                "alias": sample_data.get("sampleId", sample_id),
+            },
+        )
+        if created:
+            logger.info(
+                f"Created sample ExternalEntity for sampleId='{sample_id}' orcabusId='{sample_orcabus_id}'"
+            )
+
+    # --- library entities (one per librarySet entry) ---
+    library_entities: list[ExternalEntity] = []
+    for library_data in sample_data.get("librarySet", []):
+        library_orcabus_id = library_data.get("orcabusId")
+        library_id = library_data.get("libraryId")
+        if not library_orcabus_id:
+            logger.warning(
+                f"Skipping librarySet entry missing orcabusId for sampleId='{sample_id}': {library_data}"
+            )
+            continue
+        library_entity, created = ExternalEntity.objects.get_or_create(
+            orcabus_id=library_orcabus_id,
+            defaults={
+                "prefix": (
+                    library_orcabus_id.split(".")[0]
+                    if "." in library_orcabus_id
+                    else ""
+                ),
+                "type": "library",
+                "service_name": "metadata",
+                "alias": library_id,
+            },
+        )
+        if created:
+            logger.info(
+                f"Created library ExternalEntity for libraryId='{library_id}' orcabusId='{library_orcabus_id}'"
+            )
+        library_entities.append(library_entity)
+
+    return sample_entity, library_entities
+
+
 def get_or_create_external_entity(external_entity_orcabus_id: str) -> ExternalEntity:
     """
     Get or create external entity by orcabus_id.

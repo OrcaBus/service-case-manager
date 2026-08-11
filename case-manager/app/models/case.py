@@ -49,8 +49,9 @@ class CaseManager(BaseManager):
 
 class CaseUserLink(models.Model):
     """
-    This is just a many-many link between Case and User. Creating this model allows to override the 'db_column'
-    field for foreign keys that makes it less confusion between the 'case_id' and 'orcabus_id' in the schema.
+    Explicit many-to-many link between a Case and a User.
+    Defined as a through-model to allow overriding db_column names, avoiding ambiguity
+    between case_id and orcabus_id in the schema, and to capture per-link metadata (description, timestamp).
     """
 
     case = models.ForeignKey(
@@ -76,6 +77,9 @@ class CaseUserLink(models.Model):
 
 class CaseExternalEntityLink(models.Model):
     """
+    Confirmed many-to-many link between a Case and a fully-resolved ExternalEntity.
+    Uses explicit db_column names to avoid ambiguity between case_id and orcabus_id in the schema.
+    Only created once the ExternalEntity orcabus_id has been assigned by the originating microservice.
     Many-to-many link between Case and ExternalEntity.
 
     Linking is **blocked** when the case's current status is one of
@@ -210,28 +214,41 @@ class Case(BaseModel):
         choices=CaseStudyType.choices,
         blank=False,
         null=False,
-        help_text="""Whether this is a "clinical" or "research" case""",
+        help_text='Whether this is a "clinical" or "research" case.',
     )
     is_report_required = models.BooleanField(
         default=True,
-        help_text="Whether a report is required for this case",
+        help_text="Whether a formal report must be produced for this case.",
     )
     is_nata_accredited = models.BooleanField(
         default=True,
-        help_text="Whether a case is a NATA accredited case",
+        help_text="Whether this case is processed under NATA accreditation.",
     )
     links = models.JSONField(
         blank=True,
         null=True,
         default=dict,
         validators=[validate_urls_dict],
-        help_text='A dict of named links, e.g. {"trello": "https://...", "drive": "https://..."}',
+        help_text='Named external URLs related to this case, e.g. {"trello": "https://...", "drive": "https://..."}',
     )
     alias = models.JSONField(
         blank=True,
         null=True,
         default=list,
-        help_text="A list of aliases for this case, typically populated with external IDs to make searching easier.",
+        help_text=(
+            "List of alternative identifiers for this case (e.g. external system IDs). "
+            "Populated to make searching and cross-referencing easier."
+        ),
+    )
+    redcap_payload = models.JSONField(
+        blank=True,
+        null=True,
+        default=dict,
+        help_text=(
+            "Snapshot of the latest raw REDCap payload received for this case. "
+            "Not all REDCap fields are mapped to structured Django fields — this preserves the full "
+            "source data for audit and UI rendering of REDCap information."
+        ),
     )
     due_date = models.DateField(
         blank=True,
