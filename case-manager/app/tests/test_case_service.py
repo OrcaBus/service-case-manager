@@ -4,7 +4,7 @@ from unittest.mock import patch
 from django.test import TestCase
 
 from app.models import CaseExternalEntityLink
-from app.schemas.events.case_srelationship_state_change_model import (
+from app.schemas.events.CaseRelationshipStateChange.case_relationship_state_change_model import (
     Action,
     DetailType,
 )

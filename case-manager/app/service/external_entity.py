@@ -1,10 +1,11 @@
 from django.http import Http404
-from app.models import ExternalEntity
+from app.models import Case, CaseExternalEntityLink, ExternalEntity
 from django.core.exceptions import ObjectDoesNotExist
 import requests
 import os
 import logging
 from app.service.utils import get_service_jwt
+from app.service.http_client import http_get_json
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +80,123 @@ def fetch_external_entity_data(orcabus_id: str):
 
     # Not found in any service
     raise Http404(f"No ExternalEntity matches the given orcabus_id: {orcabus_id}")
+
+
+def fetch_workflow_runs_by_name(
+    orcabus_ids: list[str], workflow_name: str
+) -> list[dict]:
+    """
+    Batch-resolve which of the given workflow_run orcabus_ids belong to a specific
+    workflow, by querying the Workflow Service's list endpoint once with both the
+    workflow name and the candidate orcabus_ids, instead of fetching each
+    workflow run individually.
+
+    This lets the Workflow Service do the filtering server-side (it indexes/filters
+    on workflow name and orcabus_id natively), avoiding an N-call fan-out for cases
+    with multiple linked workflow runs.
+
+    Args:
+        orcabus_ids: Candidate workflow_run orcabus_ids to check (e.g. the
+            workflow_run ExternalEntity ids already linked to a case).
+        workflow_name: Workflow name to filter by, e.g. "dragen-tso500-ctdna".
+
+    Returns:
+        The raw list of workflow run result dicts (as returned by the Workflow
+        Service) whose workflow name matches `workflow_name` and whose orcabus_id
+        is one of the given `orcabus_ids`. Returns an empty list if `orcabus_ids`
+        is empty or no matches are found.
+
+    Raises:
+        requests.HTTPError: Non-200 response from the Workflow Service.
+        RuntimeError: HOSTED_ZONE_NAME environment variable not set.
+    """
+    if not orcabus_ids:
+        return []
+
+    domain_name = os.environ.get("HOSTED_ZONE_NAME")
+    if not domain_name:
+        raise RuntimeError("HOSTED_ZONE_NAME environment variable not set")
+
+    url = f"https://workflow.{domain_name}/api/v1/workflowrun/"
+
+    response_data = http_get_json(
+        url,
+        params={
+            "rowsPerPage": 100,
+            "workflow__name": workflow_name,
+            "orcabusId": orcabus_ids,
+        },
+    )
+
+    return response_data.get("results", [])
+
+
+def find_cases_linked_to_libraries(library_ids: list[str]) -> dict[str, Case]:
+    """
+    Find all cases linked to any of the given library aliases (deduplicated by case id).
+
+    linked_libraries contains plain library IDs (e.g. "L2600353") which are
+    stored as the 'alias' on library ExternalEntity records.
+
+    Args:
+        library_ids: Library aliases (e.g. from a sequence run's linkedLibraries).
+
+    Returns:
+        Dict mapping case orcabus_id -> Case, for every case linked to at least
+        one of the given libraries. Empty dict if none found.
+    """
+    case_map: dict[str, Case] = {}
+    for library_id in library_ids:
+        links = CaseExternalEntityLink.objects.select_related("case").filter(
+            external_entity__alias=library_id,
+            external_entity__type="library",
+        )
+        for link in links:
+            case = link.case
+            if case.orcabus_id not in case_map:
+                case_map[case.orcabus_id] = case
+                logger.info(
+                    f"Found case '{case.orcabus_id}' via library '{library_id}'."
+                )
+    return case_map
+
+
+def get_case_workflow_runs_by_name(case: Case, workflow_name: str) -> list[dict]:
+    """
+    For the given case, get the workflow runs stored in the external entities and check against the
+    workflow manager to see which of them (if any) are of the given workflow type.
+
+    Returns the raw workflow run records (as returned by the Workflow Service, e.g. containing
+    "orcabusId", "portalRunId", "workflow" name, "status", etc.) so callers have full flexibility
+    to use whatever fields they need without another round-trip.
+    """
+    existing_workflow_run_links = CaseExternalEntityLink.objects.filter(
+        case=case,
+        external_entity__type="workflow_run",
+        external_entity__prefix="wfr",
+    ).select_related("external_entity")
+
+    workflow_run_entities = [
+        link.external_entity for link in existing_workflow_run_links
+    ]
+    if not workflow_run_entities:
+        return []
+
+    candidate_orcabus_ids = [entity.orcabus_id for entity in workflow_run_entities]
+    return fetch_workflow_runs_by_name(candidate_orcabus_ids, workflow_name)
+
+
+def get_case_library_entities(case: Case) -> list[ExternalEntity]:
+    """
+    Retrieve the metadata-service library ExternalEntity records linked to a case.
+    """
+    library_links = CaseExternalEntityLink.objects.filter(
+        case=case,
+        external_entity__type="library",
+        external_entity__service_name="metadata",
+    ).select_related("external_entity")
+
+    return [link.external_entity for link in library_links]
 
 
 def get_or_create_sequence_run_entity(sequence_run_id: str) -> ExternalEntity:
