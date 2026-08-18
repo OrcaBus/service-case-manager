@@ -1,3 +1,5 @@
+import json
+import logging
 from functools import partial
 from typing import Literal, Any, List, TypedDict, cast
 
@@ -9,14 +11,18 @@ from app.models import (
     Case,
     CaseExternalEntityLink,
     ExternalEntity,
+    PendingExternalEntity,
     State,
     Comment,
     CaseUserLink,
 )
-from app.schemas.events.case_srelationship_state_change_model import (
+from app.schemas.events.CaseRelationshipStateChange.case_relationship_state_change_model import (
     CaseRelationshipStateChange,
     Action,
     DetailType,
+)
+from app.schemas.events.WorkflowRunUpdate.workflow_run_update_model import (
+    WorkflowRunUpdate,
 )
 from app.serializers.case import (
     CaseHistorySerializer,
@@ -25,6 +31,16 @@ from app.serializers.case import (
     CaseSerializer,
 )
 from app.serializers.external_entity import ExternalEntitySerializer
+from app.service.draft_builder import build_cttso_workflow_run_draft
+from app.service.external_entity import (
+    get_case_library_entities,
+    get_case_workflow_runs_by_name,
+)
+
+logger = logging.getLogger(__name__)
+
+# The real workflow name of cttso
+CTTSO_WORKFLOW_NAME = "dragen-tso500-ctdna"
 
 
 @transaction.atomic
@@ -280,3 +296,118 @@ def get_case_activity(case: Case) -> list:
         )
 
     return sorted(entries, key=lambda x: x["timestamp"], reverse=True)
+
+
+@transaction.atomic
+def publish_cttso_workflow_run_draft_for_case(case: Case) -> None:
+    """
+    Validate, build, and publish a WorkflowRunUpdate DRAFT event for a single case.
+
+    MVP scope: only "cttso" cases are supported today, so the workflow is
+    hardcoded for that case type. Other case types are intentionally skipped.
+
+    Skips dispatching a workflow-run draft if:
+    - case is not "cttso" type (initial implementation)
+    - no library found within the case
+    - a workflow_run whose actual workflow name is CTTSO_WORKFLOW_NAME has
+      already been linked to the case
+
+    The event is only emitted to EventBridge once the surrounding transaction
+    commits successfully (see transaction.on_commit below).
+    """
+    if case.type != "cttso":
+        logger.debug(f"Skipping case {case.orcabus_id}: type is {case.type}, not cttso")
+        return
+
+    logger.info(f"Processing cttso case: {case.orcabus_id}")
+
+    # Check for workflow run deduplication, scoped to CTTSO_WORKFLOW_NAME only —
+    # a case may have other, unrelated workflow_run links that should not block
+    # a cttso draft.
+    existing_cttso_workflow_runs = get_case_workflow_runs_by_name(
+        case, CTTSO_WORKFLOW_NAME
+    )
+    if existing_cttso_workflow_runs:
+        logger.warning(
+            f"Skipping case {case.orcabus_id}: {CTTSO_WORKFLOW_NAME} workflow "
+            f"run(s) already exist: {json.dumps(existing_cttso_workflow_runs, indent=2)}"
+        )
+        return
+
+    logger.info(
+        f"No existing {CTTSO_WORKFLOW_NAME} workflow runs found for case {case.orcabus_id}"
+    )
+
+    # Retrieve library entities linked to the case (type="library", service_name="metadata")
+    library_entities = get_case_library_entities(case)
+    if not library_entities:
+        logger.warning(f"Skipping case {case.orcabus_id}: no library entities found")
+        return
+
+    logger.info(
+        f"Found {len(library_entities)} library entities for case {case.orcabus_id}"
+    )
+
+    # Validate each library entity has orcabus_id and alias
+    for library_entity in library_entities:
+        if not library_entity.orcabus_id:
+            error_msg = f"Library entity missing orcabus_id: {library_entity}"
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+        if not library_entity.alias:
+            error_msg = f"Library entity {library_entity.orcabus_id} missing alias"
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+
+    logger.info(
+        f"All library entities validated for case {case.orcabus_id}: "
+        f"{[lib.alias for lib in library_entities]}"
+    )
+
+    # Build workflow run draft payload using draft_builder module. This function
+    # fetches workflow metadata and constructs minimal draft workflow-run payload.
+    workflow_run_draft_dict = build_cttso_workflow_run_draft(case, library_entities)
+
+    # Create Pydantic model instance from the payload
+    workflow_run_draft_model = WorkflowRunUpdate(**workflow_run_draft_dict)
+    portal_run_id = workflow_run_draft_model.portalRunId
+
+    logger.info(
+        f"Successfully built workflow run draft for case {case.orcabus_id}, "
+        f"portal_run_id={portal_run_id}"
+    )
+
+    def _queue_pending_workflow_run_and_emit() -> None:
+        """
+        Post-commit: queue a PendingExternalEntity for this draft workflow run
+        (keyed by portal_run_id, since the real wfr.* orcabus_id isn't assigned
+        until the workflow service processes the draft), then emit the
+        WorkflowRunUpdate event. handler/workflow_run_linking.py will later
+        promote this to a real ExternalEntity + CaseExternalEntityLink once the
+        workflow service assigns the real orcabus_id and emits the resulting
+        WorkflowRunStateChange event.
+        """
+        _, created = PendingExternalEntity.objects.get_or_create(
+            case=case,
+            alias=portal_run_id,
+            type="workflow_run",
+            service_name="workflow",
+        )
+        logger.info(
+            f"{'Queued' if created else 'Already queued'} PendingExternalEntity for "
+            f"draft workflow run portal_run_id={portal_run_id} on case {case.orcabus_id}"
+        )
+
+        emit_event(
+            detail_type="WorkflowRunUpdate",
+            event_detail_model=workflow_run_draft_model,
+        )
+
+    # Queue the draft workflow run as a PendingExternalEntity and emit the
+    # WorkflowRunUpdate (DRAFT) event only after the transaction commits successfully.
+    transaction.on_commit(_queue_pending_workflow_run_and_emit)
+
+    logger.info(
+        f"Queued WorkflowRunUpdate event for case {case.orcabus_id}, "
+        f"portal_run_id={portal_run_id} (will publish on transaction commit)"
+    )

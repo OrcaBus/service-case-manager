@@ -1,0 +1,179 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "$id": "https://raw.githubusercontent.com/OrcaBus/service-workflow-manager/refs/heads/main/docs/events/WorkflowRunUpdate/WorkflowRunUpdate.schema.json",
+  "description": "EventBridge custom event schema for WorkflowRunUpdate events",
+  "title": "AWSEvent",
+  "definitions": {
+    "WorkflowRunUpdate": {
+      "type": "object",
+      "required": ["portalRunId", "workflowRunName", "workflow", "libraries", "status"],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "orcabusId": {
+          "type": "string"
+        },
+        "portalRunId": {
+          "type": "string"
+        },
+        "executionId": {
+          "type": "string"
+        },
+        "workflowRunName": {
+          "type": "string"
+        },
+        "workflow": {
+          "$ref": "#/definitions/Workflow"
+        },
+        "analysisRun": {
+          "$ref": "#/definitions/AnalysisRun"
+        },
+        "libraries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Library"
+          }
+        },
+        "computeEnv": {
+          "type": "string"
+        },
+        "storageEnv": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/definitions/Payload"
+        }
+      }
+    },
+    "Library": {
+      "type": "object",
+      "required": ["libraryId", "orcabusId"],
+      "properties": {
+        "libraryId": {
+          "type": "string"
+        },
+        "orcabusId": {
+          "type": "string"
+        },
+        "readsets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Readset"
+          }
+        }
+      }
+    },
+    "Readset": {
+      "type": "object",
+      "required": ["orcabusId", "rgid"],
+      "properties": {
+        "orcabusId": {
+          "type": "string"
+        },
+        "rgid": {
+          "type": "string"
+        }
+      }
+    },
+    "Workflow": {
+      "type": "object",
+      "required": ["orcabusId"],
+      "properties": {
+        "orcabusId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "codeVersion": {
+          "type": "string"
+        },
+        "executionEngine": {
+          "type": "string"
+        },
+        "executionEnginePipelineId": {
+          "type": "string"
+        },
+        "validationState": {
+          "type": "string"
+        }
+      }
+    },
+    "AnalysisRun": {
+      "type": "object",
+      "required": ["orcabusId", "name"],
+      "properties": {
+        "orcabusId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "Payload": {
+      "type": "object",
+      "required": ["version", "data"],
+      "properties": {
+        "refId": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object"
+        }
+      }
+    }
+  },
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "region": {
+      "type": "string"
+    },
+    "resources": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "source": {
+      "type": "string"
+    },
+    "time": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    },
+    "account": {
+      "type": "string"
+    },
+    "detail-type": {
+      "type": "string"
+    },
+    "detail": {
+      "$ref": "#/definitions/WorkflowRunUpdate"
+    }
+  },
+  "required": ["detail", "detail-type", "source"]
+}

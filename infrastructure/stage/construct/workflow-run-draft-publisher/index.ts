@@ -1,0 +1,89 @@
+import { Construct } from 'constructs';
+import { PythonFunction, PythonFunctionProps } from '@aws-cdk/aws-lambda-python-alpha';
+import { Duration } from 'aws-cdk-lib';
+import { ManagedPolicy } from 'aws-cdk-lib/aws-iam';
+import { formatRdsPolicyName } from '@orcabus/platform-cdk-constructs/shared-config/database';
+import { LambdaFunction } from 'aws-cdk-lib/aws-events-targets';
+import { EventBus, Rule } from 'aws-cdk-lib/aws-events';
+import { EVENT_BUS_NAME } from '@orcabus/platform-cdk-constructs/shared-config/event-bridge';
+import { Secret } from 'aws-cdk-lib/aws-secretsmanager';
+import { JWT_SECRET_NAME } from '@orcabus/platform-cdk-constructs/shared-config/secrets';
+import { StringParameter } from 'aws-cdk-lib/aws-ssm';
+
+/**
+ * This type defines a mapping from workflow names to their corresponding Orcabus IDs. Each Orcabus ID is unique because it represents a specific combination of workflow version, execution engine, name, and other attributes defined in the workflow service.
+ */
+export type WorkflowTypeOrcabusIdMap = {
+  CTTSO_WORKFLOW_ORCABUS_ID: string;
+};
+
+type WorkflowRunDraftPublisherProps = {
+  /**
+   * The basic common lambda properties that it should inherit from
+   */
+  basicLambdaConfig: PythonFunctionProps;
+  /**
+   * Mapping from workflow names to their Orcabus IDs. Each ID uniquely represents
+   * a specific workflow version, execution engine, and name combination from the
+   * workflow service.
+   */
+  workflowNameOrcabusIdMapping: WorkflowTypeOrcabusIdMap;
+};
+
+/**
+ * Lambda triggered by EventBridge on SequenceRunStateChange events
+ */
+export class WorkflowRunDraftPublisherConstruct extends Construct {
+  readonly lambda: PythonFunction;
+  constructor(scope: Construct, id: string, props: WorkflowRunDraftPublisherProps) {
+    super(scope, id);
+
+    this.lambda = new PythonFunction(this, 'WorkflowRunDraftPublisherLambda', {
+      ...props.basicLambdaConfig,
+      index: 'handler/workflow_run_draft_publisher.py',
+      handler: 'handler',
+      timeout: Duration.minutes(15),
+      // Not using environment here to prevent overriding from the basicLambdaConfig EnvVar
+    });
+    Object.entries(props.workflowNameOrcabusIdMapping).forEach(([key, value]) => {
+      this.lambda.addEnvironment(key, value);
+    });
+
+    this.lambda.role?.addManagedPolicy(
+      ManagedPolicy.fromManagedPolicyName(
+        this,
+        'OrcabusRdsConnectPolicy',
+        formatRdsPolicyName('case_manager')
+      )
+    );
+
+    // pass the domain name for other services
+    const hostedZoneName = StringParameter.valueFromLookup(this, '/hosted_zone/umccr/name');
+    this.lambda.addEnvironment('HOSTED_ZONE_NAME', hostedZoneName);
+
+    // allow lambda to retrieve the service user JWT
+    const serviceUserJwtSecret = Secret.fromSecretNameV2(
+      this,
+      'serviceUserJwtSecret',
+      JWT_SECRET_NAME
+    );
+    this.lambda.addEnvironment('ORCABUS_SERVICE_JWT_SECRET_ARN', serviceUserJwtSecret.secretArn);
+    serviceUserJwtSecret.grantRead(this.lambda);
+
+    const orcabusEventBus = EventBus.fromEventBusName(this, 'EventBus', EVENT_BUS_NAME);
+    orcabusEventBus.grantPutEventsTo(this.lambda);
+    this.lambda.addEnvironment('EVENT_BUS_NAME', EVENT_BUS_NAME);
+
+    // Add EventBridge rule to trigger Lambda on SequenceRunStateChange events to link with cases
+    const workflowRunDraftPublisherLambda = new LambdaFunction(this.lambda);
+    new Rule(this, 'WorkflowRunDraftPublisherTriggerRule', {
+      eventBus: orcabusEventBus,
+      description:
+        'Rule to trigger workflow-run draft publisher lambda based on sequencing library linking',
+      eventPattern: {
+        detailType: ['SequenceRunLibraryLinkingChange'],
+      },
+      targets: [workflowRunDraftPublisherLambda],
+    });
+  }
+}
