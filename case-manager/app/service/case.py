@@ -11,6 +11,7 @@ from app.models import (
     Case,
     CaseExternalEntityLink,
     ExternalEntity,
+    PendingExternalEntity,
     State,
     Comment,
     CaseUserLink,
@@ -377,15 +378,35 @@ def publish_cttso_workflow_run_draft_for_case(case: Case) -> None:
         f"portal_run_id={portal_run_id}"
     )
 
-    # Emit WorkflowRunUpdate (DRAFT) event to EventBridge only after the
-    # transaction commits successfully
-    transaction.on_commit(
-        partial(
-            emit_event,
+    def _queue_pending_workflow_run_and_emit() -> None:
+        """
+        Post-commit: queue a PendingExternalEntity for this draft workflow run
+        (keyed by portal_run_id, since the real wfr.* orcabus_id isn't assigned
+        until the workflow service processes the draft), then emit the
+        WorkflowRunUpdate event. handler/workflow_run_linking.py will later
+        promote this to a real ExternalEntity + CaseExternalEntityLink once the
+        workflow service assigns the real orcabus_id and emits the resulting
+        WorkflowRunStateChange event.
+        """
+        _, created = PendingExternalEntity.objects.get_or_create(
+            case=case,
+            alias=portal_run_id,
+            type="workflow_run",
+            service_name="workflow",
+        )
+        logger.info(
+            f"{'Queued' if created else 'Already queued'} PendingExternalEntity for "
+            f"draft workflow run portal_run_id={portal_run_id} on case {case.orcabus_id}"
+        )
+
+        emit_event(
             detail_type="WorkflowRunUpdate",
             event_detail_model=workflow_run_draft_model,
         )
-    )
+
+    # Queue the draft workflow run as a PendingExternalEntity and emit the
+    # WorkflowRunUpdate (DRAFT) event only after the transaction commits successfully.
+    transaction.on_commit(_queue_pending_workflow_run_and_emit)
 
     logger.info(
         f"Queued WorkflowRunUpdate event for case {case.orcabus_id}, "

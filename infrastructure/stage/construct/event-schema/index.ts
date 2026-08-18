@@ -14,13 +14,14 @@ export class EventSchemaConstruct extends Construct {
     this.constructSchema({
       name: `${this.SCHEMA_REGISTRY_NAME}@CaseRelationshipStateChange`,
       schemaPath:
-        '../../../../case-manager/app/schemas/events/CaseRelationshipStateChange.schema.json',
+        '../../../../case-manager/app/schemas/events/CaseRelationshipStateChange/CaseRelationshipStateChange.schema.json',
       description: 'Schema for case-entity relationship state change events',
     });
 
     this.constructSchema({
       name: `${this.SCHEMA_REGISTRY_NAME}@CaseRelationshipUpdate`,
-      schemaPath: '../../../../case-manager/app/schemas/events/CaseRelationshipUpdate.schema.json',
+      schemaPath:
+        '../../../../case-manager/app/schemas/events/CaseRelationshipUpdate/CaseRelationshipUpdate.schema.json',
       description: 'Schema for case-entity relationship update events',
     });
   }
