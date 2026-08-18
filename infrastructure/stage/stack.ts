@@ -17,7 +17,10 @@ import { LambdaRedCapImportConstruct } from './construct/lambda-redcap-import';
 import { LambdaMetadataEntityLinkConstruct } from './construct/lambda-metadata-linking';
 import { LambdaWorkflowRunEntityLinkConstruct } from './construct/lambda-workflow-run-linking';
 import { LambdaSequenceRunEntityLinkConstruct } from './construct/lambda-sequence-run-linking';
-import { WorkflowRunDraftPublisherConstruct } from './construct/workflow-run-draft-publisher';
+import {
+  WorkflowRunDraftPublisherConstruct,
+  WorkflowTypeOrcabusIdMap,
+} from './construct/workflow-run-draft-publisher';
 
 export type CaseManagerStackProps = {
   /**
@@ -36,6 +39,10 @@ export type CaseManagerStackProps = {
    * Trigger import from redcap daily
    */
   isDailySyncRedCap?: boolean;
+  /**
+   * Application configuration
+   */
+  appConfiguration: WorkflowTypeOrcabusIdMap;
 };
 
 export class CaseManagerStack extends Stack {
@@ -126,6 +133,7 @@ export class CaseManagerStack extends Stack {
 
     new WorkflowRunDraftPublisherConstruct(this, 'WorkflowRunDraftPublisher', {
       basicLambdaConfig: basicLambdaConfig,
+      workflowNameOrcabusIdMapping: props.appConfiguration,
     });
   }
 }

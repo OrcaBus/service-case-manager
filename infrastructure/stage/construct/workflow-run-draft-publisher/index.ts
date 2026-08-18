@@ -10,11 +10,24 @@ import { Secret } from 'aws-cdk-lib/aws-secretsmanager';
 import { JWT_SECRET_NAME } from '@orcabus/platform-cdk-constructs/shared-config/secrets';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 
+/**
+ * This type defines a mapping from workflow names to their corresponding Orcabus IDs. Each Orcabus ID is unique because it represents a specific combination of workflow version, execution engine, name, and other attributes defined in the workflow service.
+ */
+export type WorkflowTypeOrcabusIdMap = {
+  CTTSO_WORKFLOW_ORCABUS_ID: string;
+};
+
 type WorkflowRunDraftPublisherProps = {
   /**
    * The basic common lambda properties that it should inherit from
    */
   basicLambdaConfig: PythonFunctionProps;
+  /**
+   * Mapping from workflow names to their Orcabus IDs. Each ID uniquely represents
+   * a specific workflow version, execution engine, and name combination from the
+   * workflow service.
+   */
+  workflowNameOrcabusIdMapping: WorkflowTypeOrcabusIdMap;
 };
 
 /**
@@ -32,6 +45,10 @@ export class WorkflowRunDraftPublisherConstruct extends Construct {
       timeout: Duration.minutes(15),
       // Not using environment here to prevent overriding from the basicLambdaConfig EnvVar
     });
+    Object.entries(props.workflowNameOrcabusIdMapping).forEach(([key, value]) => {
+      this.lambda.addEnvironment(key, value);
+    });
+
     this.lambda.role?.addManagedPolicy(
       ManagedPolicy.fromManagedPolicyName(
         this,

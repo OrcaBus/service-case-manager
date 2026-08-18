@@ -365,8 +365,7 @@ def publish_cttso_workflow_run_draft_for_case(case: Case) -> None:
     )
 
     # Build workflow run draft payload using draft_builder module. This function
-    # fetches workflow metadata, retrieves readsets for each library, and
-    # constructs the complete draft event payload.
+    # fetches workflow metadata and constructs minimal draft workflow-run payload.
     workflow_run_draft_dict = build_cttso_workflow_run_draft(case, library_entities)
 
     # Create Pydantic model instance from the payload
