@@ -21,6 +21,7 @@ class StringListField(ListField):
 
 class CaseSerializer(ModelSerializer):
     alias = StringListField(required=False)
+    rnasum_references = StringListField(required=False)
 
     class Meta(OrcabusIdSerializerMetaMixin):
         model = Case
@@ -54,6 +55,7 @@ class CaseDetailSerializer(ModelSerializer):
     from .comment import CommentSerializer
 
     alias = StringListField(required=False)
+    rnasum_references = StringListField(required=False, allow_null=True)
     external_entity_set = CaseExternalEntityLinkSerializer(
         source="caseexternalentitylink_set", many=True, read_only=True
     )
@@ -62,6 +64,7 @@ class CaseDetailSerializer(ModelSerializer):
     )
     latest_state = SerializerMethodField()
     comment_set = CommentSerializer(read_only=True, many=True)
+    rnasum_references = StringListField(required=False)
 
     class Meta(OrcabusIdSerializerMetaMixin):
         model = Case

@@ -114,16 +114,6 @@ def _build_payload(**extra_fields) -> dict:
         "content": "record",
         "action": "export",
         "format": "json",
-        "fields[0]": "request_id",
-        "fields[1]": "rf_test_requested",
-        "fields[2]": "rf_study",
-        "fields[3]": "rf_study_id",
-        "fields[4]": "rf_ur",  # UR number
-        "fields[5]": "nata_accred_report",
-        "fields[6]": "cttso_receipt_date",
-        "fields[7]": "cttso_receipt_time",
-        "fields[9]": "tumour_receipt_date",
-        "fields[10]": "germline_receipt_date",
         **extra_fields,
     }
 
@@ -245,6 +235,9 @@ def upsert_case_from_redcap_record(record: dict[str, str]) -> Case:
             rnasum_references.append(stored_value)
     if rnasum_references:
         data["rnasum_references"] = rnasum_references
+
+    # Store the entire raw REDCap record for audit and UI rendering.
+    data["redcap_payload"] = record
 
     # 0 = False, 1 = True
     nata_accred_report = record.get("nata_accred_report")

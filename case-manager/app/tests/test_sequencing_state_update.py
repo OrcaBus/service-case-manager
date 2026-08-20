@@ -1,8 +1,7 @@
 import logging
-import os
 from unittest.mock import patch, MagicMock
 
-from django.test import TestCase, override_settings
+from django.test import TestCase
 
 from app.models import ExternalEntity, State, CaseExternalEntityLink
 from app.models.state import CaseStatus

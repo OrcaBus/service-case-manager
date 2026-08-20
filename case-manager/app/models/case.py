@@ -205,6 +205,7 @@ class Case(BaseModel):
     rnasum_references = models.JSONField(
         blank=True,
         null=True,
+        default=list,
         help_text=(
             "[REDCap-managed] Reference dataset(s) selected for RNAsum analysis. "
             "Only the selected values from the REDCap multi-value checkbox are recorded here as a list of strings."
