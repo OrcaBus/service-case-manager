@@ -191,9 +191,7 @@ def update_sequencing_state_for_sequence_run(sequence_run_id: str) -> None:
         # 2b: Get all library IDs for this case.
         library_ids = _get_library_ids_for_case(case)
         if not library_ids:
-            logger.info(
-                f"Case '{case.orcabus_id}' has no linked libraries. Skipping."
-            )
+            logger.info(f"Case '{case.orcabus_id}' has no linked libraries. Skipping.")
             continue
 
         # 2c & 2d: Check if all sequence runs for these libraries have succeeded.

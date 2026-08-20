@@ -89,20 +89,22 @@ class SequencingStateUpdateTest(TestCase):
 
     @patch("app.service.sequencing_state_update.get_service_jwt")
     @patch("app.service.sequencing_state_update.requests.get")
-    def test_all_runs_succeeded_creates_sequencing_completed(
-        self, mock_get, mock_jwt
-    ):
+    def test_all_runs_succeeded_creates_sequencing_completed(self, mock_get, mock_jwt):
         """
         When all sequence runs for the case's libraries have SUCCEEDED,
         a new 'sequencing_completed' state is created.
         """
-        from app.service.sequencing_state_update import update_sequencing_state_for_sequence_run
+        from app.service.sequencing_state_update import (
+            update_sequencing_state_for_sequence_run,
+        )
 
         mock_jwt.return_value = "fake-jwt"
-        mock_get.return_value = _make_sequence_api_response([
-            {"sequenceRunId": "r.run1", "status": "SUCCEEDED"},
-            {"sequenceRunId": "r.run2", "status": "SUCCEEDED"},
-        ])
+        mock_get.return_value = _make_sequence_api_response(
+            [
+                {"sequenceRunId": "r.run1", "status": "SUCCEEDED"},
+                {"sequenceRunId": "r.run2", "status": "SUCCEEDED"},
+            ]
+        )
 
         update_sequencing_state_for_sequence_run(SEQUENCE_RUN_ID)
 
@@ -124,13 +126,17 @@ class SequencingStateUpdateTest(TestCase):
         When at least one sequence run is not SUCCEEDED,
         no state transition should happen.
         """
-        from app.service.sequencing_state_update import update_sequencing_state_for_sequence_run
+        from app.service.sequencing_state_update import (
+            update_sequencing_state_for_sequence_run,
+        )
 
         mock_jwt.return_value = "fake-jwt"
-        mock_get.return_value = _make_sequence_api_response([
-            {"sequenceRunId": "r.run1", "status": "SUCCEEDED"},
-            {"sequenceRunId": "r.run2", "status": "STARTED"},
-        ])
+        mock_get.return_value = _make_sequence_api_response(
+            [
+                {"sequenceRunId": "r.run1", "status": "SUCCEEDED"},
+                {"sequenceRunId": "r.run2", "status": "STARTED"},
+            ]
+        )
 
         update_sequencing_state_for_sequence_run(SEQUENCE_RUN_ID)
 
@@ -152,7 +158,9 @@ class SequencingStateUpdateTest(TestCase):
         If the most recent sequencing event is 'sequencing_completed',
         the handler should skip (no duplicate transition).
         """
-        from app.service.sequencing_state_update import update_sequencing_state_for_sequence_run
+        from app.service.sequencing_state_update import (
+            update_sequencing_state_for_sequence_run,
+        )
 
         # Close the current sequencing round
         State.objects.create(
@@ -162,9 +170,11 @@ class SequencingStateUpdateTest(TestCase):
         )
 
         mock_jwt.return_value = "fake-jwt"
-        mock_get.return_value = _make_sequence_api_response([
-            {"sequenceRunId": "r.run1", "status": "SUCCEEDED"},
-        ])
+        mock_get.return_value = _make_sequence_api_response(
+            [
+                {"sequenceRunId": "r.run1", "status": "SUCCEEDED"},
+            ]
+        )
 
         update_sequencing_state_for_sequence_run(SEQUENCE_RUN_ID)
 
@@ -189,7 +199,9 @@ class SequencingStateUpdateTest(TestCase):
         If the case has never had a sequencing_started state,
         the service should skip.
         """
-        from app.service.sequencing_state_update import update_sequencing_state_for_sequence_run
+        from app.service.sequencing_state_update import (
+            update_sequencing_state_for_sequence_run,
+        )
 
         # Remove the sequencing_started state from setUp
         State.objects.filter(
@@ -214,7 +226,9 @@ class SequencingStateUpdateTest(TestCase):
     @patch("app.service.sequencing_state_update.requests.get")
     def test_skips_terminal_statuses(self, mock_get, mock_jwt):
         """Cases in locked, completed, or archived status are skipped."""
-        from app.service.sequencing_state_update import update_sequencing_state_for_sequence_run
+        from app.service.sequencing_state_update import (
+            update_sequencing_state_for_sequence_run,
+        )
 
         terminal_statuses = [
             CaseStatus.LOCKED,
@@ -249,7 +263,9 @@ class SequencingStateUpdateTest(TestCase):
 
     def test_unknown_sequence_run_entity_returns_early(self):
         """If the sequence run hasn't been linked yet, service skips gracefully."""
-        from app.service.sequencing_state_update import update_sequencing_state_for_sequence_run
+        from app.service.sequencing_state_update import (
+            update_sequencing_state_for_sequence_run,
+        )
 
         update_sequencing_state_for_sequence_run("r.unknownRunId")
 
@@ -265,7 +281,9 @@ class SequencingStateUpdateTest(TestCase):
 
     def test_sequence_run_not_linked_to_case_skips(self):
         """Sequence run entity exists but is not linked to any case."""
-        from app.service.sequencing_state_update import update_sequencing_state_for_sequence_run
+        from app.service.sequencing_state_update import (
+            update_sequencing_state_for_sequence_run,
+        )
 
         ExternalEntity.objects.create(
             orcabus_id="seq.01ARZ3NDEKTSV4RRFFQ69G5099",
@@ -291,7 +309,9 @@ class SequencingStateUpdateTest(TestCase):
     @patch("app.service.sequencing_state_update.requests.get")
     def test_case_with_no_libraries_skips(self, mock_get, mock_jwt):
         """If the case has no library entities linked, skip without calling API."""
-        from app.service.sequencing_state_update import update_sequencing_state_for_sequence_run
+        from app.service.sequencing_state_update import (
+            update_sequencing_state_for_sequence_run,
+        )
 
         # Remove library links
         CaseExternalEntityLink.objects.filter(
@@ -316,7 +336,9 @@ class SequencingStateUpdateTest(TestCase):
     @patch("app.service.sequencing_state_update.requests.get")
     def test_api_returns_no_results_no_transition(self, mock_get, mock_jwt):
         """If the sequence API returns no runs, no transition happens."""
-        from app.service.sequencing_state_update import update_sequencing_state_for_sequence_run
+        from app.service.sequencing_state_update import (
+            update_sequencing_state_for_sequence_run,
+        )
 
         mock_jwt.return_value = "fake-jwt"
         mock_get.return_value = _make_sequence_api_response([])
@@ -337,7 +359,9 @@ class SequencingStateUpdateTest(TestCase):
     @patch("app.service.sequencing_state_update.requests.get")
     def test_api_failure_no_transition(self, mock_get, mock_jwt):
         """If the sequence API returns non-200, no transition happens."""
-        from app.service.sequencing_state_update import update_sequencing_state_for_sequence_run
+        from app.service.sequencing_state_update import (
+            update_sequencing_state_for_sequence_run,
+        )
 
         mock_jwt.return_value = "fake-jwt"
         mock_response = MagicMock()
@@ -364,7 +388,9 @@ class SequencingStateUpdateTest(TestCase):
         opens a new round. The service should proceed and create a new
         sequencing_completed.
         """
-        from app.service.sequencing_state_update import update_sequencing_state_for_sequence_run
+        from app.service.sequencing_state_update import (
+            update_sequencing_state_for_sequence_run,
+        )
 
         # Close the first round
         State.objects.create(
@@ -380,10 +406,12 @@ class SequencingStateUpdateTest(TestCase):
         )
 
         mock_jwt.return_value = "fake-jwt"
-        mock_get.return_value = _make_sequence_api_response([
-            {"sequenceRunId": "r.run1", "status": "SUCCEEDED"},
-            {"sequenceRunId": "r.run2", "status": "SUCCEEDED"},
-        ])
+        mock_get.return_value = _make_sequence_api_response(
+            [
+                {"sequenceRunId": "r.run1", "status": "SUCCEEDED"},
+                {"sequenceRunId": "r.run2", "status": "SUCCEEDED"},
+            ]
+        )
 
         update_sequencing_state_for_sequence_run(SEQUENCE_RUN_ID)
 
@@ -406,12 +434,16 @@ class SequencingStateUpdateTest(TestCase):
         After the first invocation creates sequencing_completed, a second
         invocation should skip because the last sequencing event is now completed.
         """
-        from app.service.sequencing_state_update import update_sequencing_state_for_sequence_run
+        from app.service.sequencing_state_update import (
+            update_sequencing_state_for_sequence_run,
+        )
 
         mock_jwt.return_value = "fake-jwt"
-        mock_get.return_value = _make_sequence_api_response([
-            {"sequenceRunId": "r.run1", "status": "SUCCEEDED"},
-        ])
+        mock_get.return_value = _make_sequence_api_response(
+            [
+                {"sequenceRunId": "r.run1", "status": "SUCCEEDED"},
+            ]
+        )
 
         # First call — creates the state
         update_sequencing_state_for_sequence_run(SEQUENCE_RUN_ID)
