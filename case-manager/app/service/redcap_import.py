@@ -32,6 +32,53 @@ SHORT_TURNAROUND_STUDY_NAMES = {"ASPi2L", "OCEANiC"}
 SHORT_TURNAROUND_WEEKS = 3
 DEFAULT_TURNAROUND_WEEKS = 4
 
+# Prefix used by REDCap for the rnasum_reference multi-value checkbox.
+_RNASUM_REFERENCE_PREFIX = "rnasum_reference___"
+
+# Explicit mapping from REDCap checkbox suffix to stored value.
+_RNASUM_REFERENCE_MAP: dict[str, str] = {
+    "pancan": "PANCAN",
+    "acc": "ACC",
+    "blca": "BLCA",
+    "blca_net": "BLCA-NET",
+    "brca": "BRCA",
+    "cesc": "CESC",
+    "chol": "CHOL",
+    "coad": "COAD",
+    "dlbc": "DLBC",
+    "esca": "ESCA",
+    "gbm": "GBM",
+    "hnsc": "HNSC",
+    "kich": "KICH",
+    "kirc": "KIRC",
+    "kirp": "KIRP",
+    "laml": "LAML",
+    "lgg": "LGG",
+    "lihc": "LIHC",
+    "luad": "LUAD",
+    "lusc": "LUSC",
+    "meso": "MESO",
+    "ov": "OV",
+    "paad": "PAAD",
+    "pcpg": "PCPG",
+    "prad": "PRAD",
+    "read": "READ",
+    "sarc": "SARC",
+    "skcm": "SKCM",
+    "stad": "STAD",
+    "tgct": "TGCT",
+    "thca": "THCA",
+    "thym": "THYM",
+    "ucec": "UCEC",
+    "ucs": "UCS",
+    "uvm": "UVM",
+    "luad_lcnec": "LUAD-LCNEC",
+    "paad_acc": "PAAD-ACC",
+    "paad_ipmn": "PAAD-IPMN",
+    "paad_net": "PAAD-NET",
+}
+
+
 _redcap_token: Optional[str] = None
 
 
@@ -185,6 +232,19 @@ def upsert_case_from_redcap_record(record: dict[str, str]) -> Case:
     ur_number = record.get("rf_ur")
     if ur_number is not None:
         data["ur_number"] = ur_number
+
+    # Extract rnasum_reference from REDCap multi-value checkbox fields.
+    # Unknown suffixes (not yet in _RNASUM_REFERENCE_MAP) are silently skipped.
+    rnasum_references = []
+    for key, value in record.items():
+        if value != "1" or not key.startswith(_RNASUM_REFERENCE_PREFIX):
+            continue
+        suffix = key.removeprefix(_RNASUM_REFERENCE_PREFIX)
+        stored_value = _RNASUM_REFERENCE_MAP.get(suffix)
+        if stored_value:
+            rnasum_references.append(stored_value)
+    if rnasum_references:
+        data["rnasum_references"] = rnasum_references
 
     # 0 = False, 1 = True
     nata_accred_report = record.get("nata_accred_report")

@@ -202,6 +202,14 @@ class Case(BaseModel):
         null=True,
         help_text="[REDCap-managed] The UR (Unit Record) number for this case, as recorded in REDCap.",
     )
+    rnasum_references = models.JSONField(
+        blank=True,
+        null=True,
+        help_text=(
+            "[REDCap-managed] Reference dataset(s) selected for RNAsum analysis. "
+            "Only the selected values from the REDCap multi-value checkbox are recorded here as a list of strings."
+        ),
+    )
 
     # ------------------------------------------------------------------
     # API-editable fields

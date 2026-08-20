@@ -695,6 +695,149 @@ class UpsertCaseFromRedcapRecordValidationTest(TestCase):
         self.assertEqual(State.objects.filter(case=case).count(), 0)
 
 
+class UpsertCaseFromRedcapRecordRnasumReferenceTest(TestCase):
+    """
+    rnasum_reference is derived from REDCap's multi-value checkbox fields
+    (rnasum_reference___<suffix> = "1") via the module-level _RNASUM_REFERENCE_MAP.
+
+    python manage.py test app.tests.test_redcap_import.UpsertCaseFromRedcapRecordRnasumReferenceTest
+    """
+
+    def test_single_checked_option_is_stored(self):
+        """
+        python manage.py test app.tests.test_redcap_import.UpsertCaseFromRedcapRecordRnasumReferenceTest.test_single_checked_option_is_stored
+        """
+        case = upsert_case_from_redcap_record(
+            {
+                "request_id": "case-001",
+                "rf_test_requested": CaseType.CTTSO,
+                "rnasum_reference___pancan": "1",
+            }
+        )
+
+        self.assertEqual(case.rnasum_references, ["PANCAN"])
+
+    def test_multiple_checked_options_are_all_stored(self):
+        """
+        python manage.py test app.tests.test_redcap_import.UpsertCaseFromRedcapRecordRnasumReferenceTest.test_multiple_checked_options_are_all_stored
+        """
+        case = upsert_case_from_redcap_record(
+            {
+                "request_id": "case-001",
+                "rf_test_requested": CaseType.CTTSO,
+                "rnasum_reference___pancan": "1",
+                "rnasum_reference___acc": "1",
+                "rnasum_reference___brca": "0",  # unchecked, must be excluded
+            }
+        )
+
+        self.assertCountEqual(case.rnasum_references, ["PANCAN", "ACC"])
+
+    def test_unchecked_options_are_excluded(self):
+        """
+        python manage.py test app.tests.test_redcap_import.UpsertCaseFromRedcapRecordRnasumReferenceTest.test_unchecked_options_are_excluded
+        """
+        case = upsert_case_from_redcap_record(
+            {
+                "request_id": "case-001",
+                "rf_test_requested": CaseType.CTTSO,
+                "rnasum_reference___pancan": "0",
+            }
+        )
+
+        self.assertIsNone(case.rnasum_references)
+
+    def test_unknown_suffix_is_silently_skipped(self):
+        """
+        A checked suffix not present in _RNASUM_REFERENCE_MAP must be ignored
+        rather than raising, so unrecognised REDCap checkbox options don't
+        break the sync.
+
+        python manage.py test app.tests.test_redcap_import.UpsertCaseFromRedcapRecordRnasumReferenceTest.test_unknown_suffix_is_silently_skipped
+        """
+        case = upsert_case_from_redcap_record(
+            {
+                "request_id": "case-001",
+                "rf_test_requested": CaseType.CTTSO,
+                "rnasum_reference___not_a_real_suffix": "1",
+            }
+        )
+
+        self.assertIsNone(case.rnasum_references)
+
+    def test_unknown_suffix_does_not_block_known_ones(self):
+        """
+        python manage.py test app.tests.test_redcap_import.UpsertCaseFromRedcapRecordRnasumReferenceTest.test_unknown_suffix_does_not_block_known_ones
+        """
+        case = upsert_case_from_redcap_record(
+            {
+                "request_id": "case-001",
+                "rf_test_requested": CaseType.CTTSO,
+                "rnasum_reference___pancan": "1",
+                "rnasum_reference___not_a_real_suffix": "1",
+            }
+        )
+
+        self.assertEqual(case.rnasum_references, ["PANCAN"])
+
+    def test_no_rnasum_fields_leaves_field_unset(self):
+        """
+        python manage.py test app.tests.test_redcap_import.UpsertCaseFromRedcapRecordRnasumReferenceTest.test_no_rnasum_fields_leaves_field_unset
+        """
+        case = upsert_case_from_redcap_record(
+            {
+                "request_id": "case-001",
+                "rf_test_requested": CaseType.CTTSO,
+            }
+        )
+
+        self.assertIsNone(case.rnasum_references)
+
+    def test_unrelated_fields_with_similar_prefix_are_ignored(self):
+        """
+        Only keys starting with the exact rnasum_reference___ prefix are
+        considered; unrelated fields (even ones containing "1") must not
+        leak into the result.
+
+        python manage.py test app.tests.test_redcap_import.UpsertCaseFromRedcapRecordRnasumReferenceTest.test_unrelated_fields_with_similar_prefix_are_ignored
+        """
+        case = upsert_case_from_redcap_record(
+            {
+                "request_id": "case-001",
+                "rf_test_requested": CaseType.CTTSO,
+                "rf_ur": "1",
+                "rnasum_reference": "1",  # missing the "___" separator + suffix
+            }
+        )
+
+        self.assertIsNone(case.rnasum_references)
+
+    def test_resync_updates_rnasum_reference(self):
+        """
+        A second sync with different checked options must update the stored
+        list, not merge with or ignore the previous one.
+
+        python manage.py test app.tests.test_redcap_import.UpsertCaseFromRedcapRecordRnasumReferenceTest.test_resync_updates_rnasum_reference
+        """
+        upsert_case_from_redcap_record(
+            {
+                "request_id": "case-001",
+                "rf_test_requested": CaseType.CTTSO,
+                "rnasum_reference___pancan": "1",
+            }
+        )
+
+        case = upsert_case_from_redcap_record(
+            {
+                "request_id": "case-001",
+                "rf_test_requested": CaseType.CTTSO,
+                "rnasum_reference___acc": "1",
+            }
+        )
+
+        self.assertEqual(case.rnasum_references, ["ACC"])
+
+
 class UpsertCaseFromRedcapRecordDueDateTest(TestCase):
     """
     ALL_SAMPLE_RECEIVED state + due_date derivation per case type.
