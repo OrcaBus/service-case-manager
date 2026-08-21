@@ -233,8 +233,7 @@ def upsert_case_from_redcap_record(record: dict[str, str]) -> Case:
         stored_value = _RNASUM_REFERENCE_MAP.get(suffix)
         if stored_value:
             rnasum_references.append(stored_value)
-    if rnasum_references:
-        data["rnasum_references"] = rnasum_references
+    data["rnasum_references"] = rnasum_references
 
     # Store the entire raw REDCap record for audit and UI rendering.
     data["redcap_payload"] = record

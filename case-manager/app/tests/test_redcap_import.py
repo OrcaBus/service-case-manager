@@ -745,7 +745,7 @@ class UpsertCaseFromRedcapRecordRnasumReferenceTest(TestCase):
             }
         )
 
-        self.assertIsNone(case.rnasum_references)
+        self.assertEqual(case.rnasum_references, [])
 
     def test_unknown_suffix_is_silently_skipped(self):
         """
@@ -763,7 +763,7 @@ class UpsertCaseFromRedcapRecordRnasumReferenceTest(TestCase):
             }
         )
 
-        self.assertIsNone(case.rnasum_references)
+        self.assertEqual(case.rnasum_references, [])
 
     def test_unknown_suffix_does_not_block_known_ones(self):
         """
@@ -791,7 +791,7 @@ class UpsertCaseFromRedcapRecordRnasumReferenceTest(TestCase):
             }
         )
 
-        self.assertIsNone(case.rnasum_references)
+        self.assertEqual(case.rnasum_references, [])
 
     def test_unrelated_fields_with_similar_prefix_are_ignored(self):
         """
@@ -810,7 +810,7 @@ class UpsertCaseFromRedcapRecordRnasumReferenceTest(TestCase):
             }
         )
 
-        self.assertIsNone(case.rnasum_references)
+        self.assertEqual(case.rnasum_references, [])
 
     def test_resync_updates_rnasum_reference(self):
         """

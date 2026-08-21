@@ -71,7 +71,10 @@ def _transition_to_sequencing_started(case, sequence_run_id: str) -> None:
         .order_by("-created_at")
         .first()
     )
-    if latest_sequencing_state and latest_sequencing_state.status == CaseStatus.SEQUENCING_STARTED:
+    if (
+        latest_sequencing_state
+        and latest_sequencing_state.status == CaseStatus.SEQUENCING_STARTED
+    ):
         logger.info(
             f"Case '{case.orcabus_id}' already has an open 'sequencing_started' state. "
             f"Skipping duplicate transition for sequence run '{sequence_run_id}'."
