@@ -5,7 +5,8 @@ import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import { ManagedPolicy } from 'aws-cdk-lib/aws-iam';
 import { formatRdsPolicyName } from '@orcabus/platform-cdk-constructs/shared-config/database';
 import { LambdaFunction } from 'aws-cdk-lib/aws-events-targets';
-import { Rule, Schedule } from 'aws-cdk-lib/aws-events';
+import { EventBus, Rule, Schedule } from 'aws-cdk-lib/aws-events';
+import { EVENT_BUS_NAME } from '@orcabus/platform-cdk-constructs/shared-config/event-bridge';
 
 export const REDCAP_TOKEN_PARAMETER_NAME = '/orcabus/case-manager/redcap/redcap-api-token';
 
@@ -47,6 +48,10 @@ export class LambdaRedCapImportConstruct extends Construct {
       { parameterName: REDCAP_TOKEN_PARAMETER_NAME }
     );
     redcapTokenSSM.grantRead(this.lambda);
+
+    const orcabusEventBus = EventBus.fromEventBusName(this, 'EventBus', EVENT_BUS_NAME);
+    orcabusEventBus.grantPutEventsTo(this.lambda);
+    this.lambda.addEnvironment('EVENT_BUS_NAME', EVENT_BUS_NAME);
 
     // Add scheduled event to re-sync metadata every midnight
     const redCapLambdaEventTarget = new LambdaFunction(this.lambda);
