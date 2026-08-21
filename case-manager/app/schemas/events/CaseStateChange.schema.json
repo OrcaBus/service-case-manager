@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "$id": "https://raw.githubusercontent.com/OrcaBus/case-manager/refs/heads/main/case-manager/app/schemas/events/CaseStateChange.schema.json",
+  "description": "EventBridge event schema for case state changes (create or update).",
+  "title": "CaseStateChangeEvent",
+  "type": "object",
+  "required": ["detail-type", "detail", "source"],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "region": {
+      "type": "string"
+    },
+    "resources": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "source": {
+      "enum": ["orcabus.casemanager"]
+    },
+    "time": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "version": {
+      "type": "string"
+    },
+    "account": {
+      "type": "string"
+    },
+    "detail-type": {
+      "enum": ["CaseStateChange"]
+    },
+    "detail": {
+      "$ref": "#/definitions/CaseStateChange"
+    }
+  },
+  "definitions": {
+    "CaseStateChange": {
+      "type": "object",
+      "required": ["action", "refId", "timestamp", "case"],
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": ["CREATE", "UPDATE"]
+        },
+        "refId": {
+          "type": "string",
+          "description": "The orcabus_id of the case"
+        },
+        "timestamp": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object"
+        }
+      }
+    }
+  }
+}

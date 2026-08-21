@@ -3,11 +3,13 @@ import os
 import boto3
 import requests
 
+from functools import partial
 from typing import Optional
 from datetime import datetime, date, time, timezone, timedelta
 from zoneinfo import ZoneInfo
 from django.db import transaction
 
+from app.aws.event_bridge import emit_event
 from app.models import (
     CaseExternalEntityLink,
     PendingExternalEntity,
@@ -16,6 +18,12 @@ from app.models import (
 from app.models import Case, ExternalSyncLog, State, User
 from app.models.case import CaseType, CaseStudyType
 from app.models.state import CaseStatus
+from app.schemas.events.case_state_change_model import (
+    CaseStateChange,
+    Action as CaseStateAction,
+    DetailType as CaseStateDetailType,
+)
+from app.serializers.case import CaseSerializer
 from app.service.external_entity import get_or_create_entities_by_sample_id
 
 logger = logging.getLogger(__name__)
@@ -189,6 +197,24 @@ def _add_state_if_new(
     )
 
 
+def _emit_case_state_change(case: Case, action: CaseStateAction) -> None:
+    """Emit a CaseStateChange event to EventBridge after the transaction commits."""
+    case_data = dict(CaseSerializer(case).data)
+    event_model = CaseStateChange(
+        action=action,
+        refId=str(case.orcabus_id),
+        timestamp=datetime.now(timezone.utc).isoformat(),
+        case=case_data,
+    )
+    transaction.on_commit(
+        partial(
+            emit_event,
+            detail_type=CaseStateDetailType.CaseStateChange.value,
+            event_detail_model=event_model,
+        )
+    )
+
+
 @transaction.atomic
 def upsert_case_from_redcap_record(record: dict[str, str]) -> Case:
     """Upsert a Case from REDCap record fields."""
@@ -304,8 +330,10 @@ def upsert_case_from_redcap_record(record: dict[str, str]) -> Case:
 
     if is_created:
         logger.info(f"Created case for request_form_id={request_form_id}")
+        _emit_case_state_change(case, CaseStateAction.CREATE)
     elif is_updated:
         logger.info(f"Updated case for request_form_id={request_form_id}")
+        _emit_case_state_change(case, CaseStateAction.UPDATE)
     else:
         logger.debug(f"No change for case request_form_id={request_form_id}")
 
