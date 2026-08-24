@@ -106,7 +106,7 @@ class SequencingStateUpdateTest(TestCase):
             ]
         )
 
-        update_sequencing_state_for_sequence_run(SEQUENCE_RUN_ID)
+        update_sequencing_state_for_sequence_run(SEQUENCE_RUN_ORCABUS_ID)
 
         completed_states = State.objects.filter(
             case=self.case,
@@ -138,7 +138,7 @@ class SequencingStateUpdateTest(TestCase):
             ]
         )
 
-        update_sequencing_state_for_sequence_run(SEQUENCE_RUN_ID)
+        update_sequencing_state_for_sequence_run(SEQUENCE_RUN_ORCABUS_ID)
 
         completed_states = State.objects.filter(
             case=self.case,
@@ -176,7 +176,7 @@ class SequencingStateUpdateTest(TestCase):
             ]
         )
 
-        update_sequencing_state_for_sequence_run(SEQUENCE_RUN_ID)
+        update_sequencing_state_for_sequence_run(SEQUENCE_RUN_ORCABUS_ID)
 
         # Should still be only the one we created above (no new one)
         completed_states = State.objects.filter(
@@ -209,7 +209,7 @@ class SequencingStateUpdateTest(TestCase):
         ).delete()
 
         mock_jwt.return_value = "fake-jwt"
-        update_sequencing_state_for_sequence_run(SEQUENCE_RUN_ID)
+        update_sequencing_state_for_sequence_run(SEQUENCE_RUN_ORCABUS_ID)
 
         mock_get.assert_not_called()
         self.assertFalse(
@@ -243,7 +243,7 @@ class SequencingStateUpdateTest(TestCase):
                 )
 
                 mock_jwt.return_value = "fake-jwt"
-                update_sequencing_state_for_sequence_run(SEQUENCE_RUN_ID)
+                update_sequencing_state_for_sequence_run(SEQUENCE_RUN_ORCABUS_ID)
 
                 mock_get.assert_not_called()
 
@@ -267,7 +267,7 @@ class SequencingStateUpdateTest(TestCase):
             update_sequencing_state_for_sequence_run,
         )
 
-        update_sequencing_state_for_sequence_run("r.unknownRunId")
+        update_sequencing_state_for_sequence_run("seq.01UNKNOWN0000000000000000")
 
         self.assertFalse(
             State.objects.filter(
@@ -293,7 +293,7 @@ class SequencingStateUpdateTest(TestCase):
             alias="r.orphanRun",
         )
 
-        update_sequencing_state_for_sequence_run("r.orphanRun")
+        update_sequencing_state_for_sequence_run("seq.01ARZ3NDEKTSV4RRFFQ69G5099")
 
         self.assertFalse(
             State.objects.filter(
@@ -319,7 +319,7 @@ class SequencingStateUpdateTest(TestCase):
         ).delete()
 
         mock_jwt.return_value = "fake-jwt"
-        update_sequencing_state_for_sequence_run(SEQUENCE_RUN_ID)
+        update_sequencing_state_for_sequence_run(SEQUENCE_RUN_ORCABUS_ID)
 
         mock_get.assert_not_called()
         self.assertFalse(
@@ -343,7 +343,7 @@ class SequencingStateUpdateTest(TestCase):
         mock_jwt.return_value = "fake-jwt"
         mock_get.return_value = _make_sequence_api_response([])
 
-        update_sequencing_state_for_sequence_run(SEQUENCE_RUN_ID)
+        update_sequencing_state_for_sequence_run(SEQUENCE_RUN_ORCABUS_ID)
 
         self.assertFalse(
             State.objects.filter(
@@ -368,7 +368,7 @@ class SequencingStateUpdateTest(TestCase):
         mock_response.status_code = 500
         mock_get.return_value = mock_response
 
-        update_sequencing_state_for_sequence_run(SEQUENCE_RUN_ID)
+        update_sequencing_state_for_sequence_run(SEQUENCE_RUN_ORCABUS_ID)
 
         self.assertFalse(
             State.objects.filter(
@@ -413,7 +413,7 @@ class SequencingStateUpdateTest(TestCase):
             ]
         )
 
-        update_sequencing_state_for_sequence_run(SEQUENCE_RUN_ID)
+        update_sequencing_state_for_sequence_run(SEQUENCE_RUN_ORCABUS_ID)
 
         # Should now have 2 sequencing_completed states (one from first round, one new)
         completed_states = State.objects.filter(
@@ -446,9 +446,9 @@ class SequencingStateUpdateTest(TestCase):
         )
 
         # First call — creates the state
-        update_sequencing_state_for_sequence_run(SEQUENCE_RUN_ID)
+        update_sequencing_state_for_sequence_run(SEQUENCE_RUN_ORCABUS_ID)
         # Second call — should skip
-        update_sequencing_state_for_sequence_run(SEQUENCE_RUN_ID)
+        update_sequencing_state_for_sequence_run(SEQUENCE_RUN_ORCABUS_ID)
 
         completed_states = State.objects.filter(
             case=self.case,
