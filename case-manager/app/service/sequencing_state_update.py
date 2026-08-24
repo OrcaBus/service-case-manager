@@ -124,7 +124,7 @@ def _all_sequence_runs_succeeded(library_ids: list[str]) -> bool:
     return True
 
 
-def update_sequencing_state_for_sequence_run(sequence_run_id: str) -> None:
+def update_sequencing_state_for_sequence_run(sequence_run_orcabus_id: str) -> None:
     """
     Given a sequence run ID (alias), find all cases linked to it and transition
     them to 'sequencing_completed' if all related sequence runs have succeeded.
@@ -149,11 +149,11 @@ def update_sequencing_state_for_sequence_run(sequence_run_id: str) -> None:
     # Step 1: Find the external entity for this sequence run, then find linked cases.
     try:
         sequence_run_entity = ExternalEntity.objects.get(
-            alias=sequence_run_id, type="sequence_run"
+            orcabus_id=sequence_run_orcabus_id, type="sequence_run"
         )
     except ExternalEntity.DoesNotExist:
         logger.warning(
-            f"No external entity found for sequence run '{sequence_run_id}'. "
+            f"No external entity found for sequence run orcabus id of '{sequence_run_orcabus_id}'. "
             f"The sequence_run_linking handler may not have processed this run yet."
         )
         return
@@ -164,7 +164,7 @@ def update_sequencing_state_for_sequence_run(sequence_run_id: str) -> None:
 
     if not case_links.exists():
         logger.info(
-            f"Sequence run '{sequence_run_id}' is not linked to any case. Nothing to do."
+            f"Sequence run '{sequence_run_orcabus_id}' is not linked to any case. Nothing to do."
         )
         return
 

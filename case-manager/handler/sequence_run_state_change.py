@@ -31,10 +31,10 @@ def handler(event, context):
     logger.info(f"Processing SequenceRunStateChange event: {event}")
 
     detail = event.get("detail", {})
-    sequence_run_id = detail.get("sequenceRunId")
+    sequence_run_orcabus_id = detail.get("id")
 
-    if not sequence_run_id:
-        logger.warning("Skipping event: no 'sequenceRunId' found in detail.")
+    if not sequence_run_orcabus_id:
+        logger.warning("Skipping event: no 'id' found in detail.")
         return
 
-    update_sequencing_state_for_sequence_run(sequence_run_id)
+    update_sequencing_state_for_sequence_run(sequence_run_orcabus_id)

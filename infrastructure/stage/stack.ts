@@ -17,6 +17,7 @@ import { LambdaRedCapImportConstruct } from './construct/lambda-redcap-import';
 import { LambdaMetadataEntityLinkConstruct } from './construct/lambda-metadata-linking';
 import { LambdaWorkflowRunEntityLinkConstruct } from './construct/lambda-workflow-run-linking';
 import { LambdaSequenceRunEntityLinkConstruct } from './construct/lambda-sequence-run-linking';
+import { SequenceRunStateChangeHandler } from './construct/sequence-run-state-change-handler';
 
 export type CaseManagerStackProps = {
   /**
@@ -120,6 +121,10 @@ export class CaseManagerStack extends Stack {
     });
 
     new LambdaSequenceRunEntityLinkConstruct(this, 'LambdaSequenceRunEntityLink', {
+      basicLambdaConfig: basicLambdaConfig,
+    });
+
+    new SequenceRunStateChangeHandler(this, 'SequenceRunStateChangeHandler', {
       basicLambdaConfig: basicLambdaConfig,
     });
   }
