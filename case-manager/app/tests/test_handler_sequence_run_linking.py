@@ -347,3 +347,263 @@ class SequenceRunLinkingHandlerTest(TestCase):
         mock_link.assert_called_once_with(
             self.case, mock_seq_entity, history_user="system"
         )
+
+
+class SequenceRunLinkingStatusTransitionTest(TestCase):
+    """
+    Tests for the automatic 'sequencing_started' status transition
+    triggered after a sequence run is successfully linked to a case.
+
+    python manage.py test app.tests.test_handler_sequence_run_linking.SequenceRunLinkingStatusTransitionTest
+    """
+
+    def _create_seq_run_entity(self):
+        obj, _ = ExternalEntity.objects.get_or_create(
+            orcabus_id=SEQUENCE_RUN_ORCABUS_ID,
+            prefix="seq",
+            type="sequence_run",
+            service_name="sequence",
+            alias=SEQUENCE_RUN_ID,
+        )
+        return obj
+
+    def setUp(self):
+        self.user = UserFactory()
+        self.case = CaseFactory(request_form_id="case-status-transition-001")
+        # Create library entity and link it to the case
+        self.library_entity = ExternalEntity.objects.create(
+            orcabus_id=LIBRARY_ORCABUS_ID_1,
+            prefix="lib",
+            type="library",
+            service_name="metadata",
+            alias=LIBRARY_ID_1,
+        )
+        CaseExternalEntityLink.objects.create(
+            case=self.case, external_entity=self.library_entity
+        )
+
+    # ------------------------------------------------------------------
+    # Happy path: successful link transitions case to sequencing_started
+    # ------------------------------------------------------------------
+
+    @patch("handler.sequence_run_linking.get_or_create_sequence_run_entity")
+    def test_successful_link_creates_sequencing_started_state(self, mock_get_entity):
+        """
+        After a sequence run is successfully linked to a case, the case should
+        be transitioned to 'sequencing_started'.
+        """
+        from handler.sequence_run_linking import handler
+
+        seq_entity = self._create_seq_run_entity()
+        mock_get_entity.return_value = seq_entity
+
+        handler(make_event(linked_libraries=[LIBRARY_ID_1]), {})
+
+        # Verify the link was created
+        self.assertTrue(
+            CaseExternalEntityLink.objects.filter(
+                case=self.case, external_entity=seq_entity
+            ).exists()
+        )
+
+        # Verify the sequencing_started state was created
+        sequencing_started_states = State.objects.filter(
+            case=self.case,
+            status=CaseStatus.SEQUENCING_STARTED,
+            is_archived=False,
+        )
+        self.assertEqual(sequencing_started_states.count(), 1)
+
+    # ------------------------------------------------------------------
+    # Skip: already has an open sequencing_started state
+    # ------------------------------------------------------------------
+
+    @patch("handler.sequence_run_linking.get_or_create_sequence_run_entity")
+    def test_skips_transition_when_already_sequencing_started(self, mock_get_entity):
+        """
+        If the case already has an open 'sequencing_started' state, linking a new
+        sequence run should NOT create a duplicate sequencing_started state.
+        """
+        from handler.sequence_run_linking import handler
+
+        # Pre-existing sequencing_started state
+        State.objects.create(
+            case=self.case,
+            status=CaseStatus.SEQUENCING_STARTED,
+            created_by=self.user,
+        )
+
+        seq_entity = self._create_seq_run_entity()
+        mock_get_entity.return_value = seq_entity
+
+        handler(make_event(linked_libraries=[LIBRARY_ID_1]), {})
+
+        # Should still have only the one pre-existing state (no duplicate)
+        sequencing_started_states = State.objects.filter(
+            case=self.case,
+            status=CaseStatus.SEQUENCING_STARTED,
+            is_archived=False,
+        )
+        self.assertEqual(sequencing_started_states.count(), 1)
+
+    # ------------------------------------------------------------------
+    # Allow re-sequencing: transition back from sequencing_completed
+    # ------------------------------------------------------------------
+
+    @patch("handler.sequence_run_linking.get_or_create_sequence_run_entity")
+    def test_allows_transition_from_sequencing_completed(self, mock_get_entity):
+        """
+        If the last sequencing-related state is 'sequencing_completed' (a previous
+        round finished), linking a new sequence run should create a new
+        'sequencing_started' for the additional sequencing round.
+        """
+        from handler.sequence_run_linking import handler
+
+        # Simulate a completed first sequencing round
+        State.objects.create(
+            case=self.case,
+            status=CaseStatus.SEQUENCING_STARTED,
+            created_by=self.user,
+        )
+        State.objects.create(
+            case=self.case,
+            status=CaseStatus.SEQUENCING_COMPLETED,
+            created_by=self.user,
+        )
+
+        seq_entity = self._create_seq_run_entity()
+        mock_get_entity.return_value = seq_entity
+
+        handler(make_event(linked_libraries=[LIBRARY_ID_1]), {})
+
+        # Should now have 2 sequencing_started states (original + new round)
+        sequencing_started_states = State.objects.filter(
+            case=self.case,
+            status=CaseStatus.SEQUENCING_STARTED,
+            is_archived=False,
+        )
+        self.assertEqual(sequencing_started_states.count(), 2)
+
+    # ------------------------------------------------------------------
+    # Skip: case is in a terminal status (locked, completed, archived)
+    # ------------------------------------------------------------------
+
+    @patch("handler.sequence_run_linking.get_or_create_sequence_run_entity")
+    @patch("handler.sequence_run_linking.link_case_to_external_entity_and_emit")
+    def test_skips_transition_for_terminal_statuses(self, mock_link, mock_get_entity):
+        """
+        If the case is in a terminal status (locked, completed, archived), the
+        link itself will be blocked by ValidationError so no state transition
+        should occur either.
+        """
+        from handler.sequence_run_linking import handler
+
+        terminal_statuses = [
+            CaseStatus.LOCKED,
+            CaseStatus.COMPLETED,
+            CaseStatus.ARCHIVED,
+        ]
+
+        for status in terminal_statuses:
+            with self.subTest(status=status):
+                # Reset states for each sub-test
+                State.objects.filter(case=self.case).delete()
+                State.objects.create(
+                    case=self.case, status=status, created_by=self.user
+                )
+
+                mock_seq_entity = MagicMock()
+                mock_get_entity.return_value = mock_seq_entity
+                mock_link.side_effect = DjangoValidationError(
+                    f"Cannot modify link: case is '{status}'."
+                )
+
+                handler(make_event(linked_libraries=[LIBRARY_ID_1]), {})
+
+                # No sequencing_started should be created
+                self.assertFalse(
+                    State.objects.filter(
+                        case=self.case,
+                        status=CaseStatus.SEQUENCING_STARTED,
+                        is_archived=False,
+                    ).exists(),
+                    msg=f"Expected no sequencing_started for terminal status '{status}'",
+                )
+
+    # ------------------------------------------------------------------
+    # No transition on IntegrityError (duplicate link)
+    # ------------------------------------------------------------------
+
+    @patch("handler.sequence_run_linking.get_or_create_sequence_run_entity")
+    def test_no_transition_on_duplicate_link(self, mock_get_entity):
+        """
+        When the sequence run is already linked (IntegrityError), no state
+        transition should occur.
+        """
+        from handler.sequence_run_linking import handler
+
+        seq_entity = self._create_seq_run_entity()
+        mock_get_entity.return_value = seq_entity
+
+        # Pre-create the link so the handler call hits IntegrityError
+        CaseExternalEntityLink.objects.create(
+            case=self.case, external_entity=seq_entity
+        )
+
+        handler(make_event(linked_libraries=[LIBRARY_ID_1]), {})
+
+        # No sequencing_started should be created (IntegrityError path)
+        self.assertFalse(
+            State.objects.filter(
+                case=self.case,
+                status=CaseStatus.SEQUENCING_STARTED,
+                is_archived=False,
+            ).exists()
+        )
+
+    # ------------------------------------------------------------------
+    # Multiple cases: each gets its own sequencing_started
+    # ------------------------------------------------------------------
+
+    @patch("handler.sequence_run_linking.get_or_create_sequence_run_entity")
+    def test_multiple_cases_each_get_sequencing_started(self, mock_get_entity):
+        """
+        When the sequence run matches libraries in multiple cases, each case
+        should independently receive a 'sequencing_started' transition.
+        """
+        from handler.sequence_run_linking import handler
+
+        case_2 = CaseFactory(request_form_id="case-status-transition-002")
+        library_entity_2 = ExternalEntity.objects.create(
+            orcabus_id=LIBRARY_ORCABUS_ID_2,
+            prefix="lib",
+            type="library",
+            service_name="metadata",
+            alias=LIBRARY_ID_2,
+        )
+        CaseExternalEntityLink.objects.create(
+            case=case_2, external_entity=library_entity_2
+        )
+
+        seq_entity = self._create_seq_run_entity()
+        mock_get_entity.return_value = seq_entity
+
+        handler(make_event(), {})  # event has both LIBRARY_ID_1 and LIBRARY_ID_2
+
+        # Both cases should have a sequencing_started state
+        self.assertTrue(
+            State.objects.filter(
+                case=self.case,
+                status=CaseStatus.SEQUENCING_STARTED,
+                is_archived=False,
+            ).exists(),
+            "case 1 should have sequencing_started",
+        )
+        self.assertTrue(
+            State.objects.filter(
+                case=case_2,
+                status=CaseStatus.SEQUENCING_STARTED,
+                is_archived=False,
+            ).exists(),
+            "case 2 should have sequencing_started",
+        )

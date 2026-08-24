@@ -10,6 +10,10 @@ generate-event-models:
 		--input ./events/CaseRelationshipUpdate.schema.json \
 		--input-file-type jsonschema \
 		--output ./events/case_relationship_update_model.py
+	@datamodel-codegen \
+		--input ./events/CaseStateChange.schema.json \
+		--input-file-type jsonschema \
+		--output ./events/case_state_change_model.py
 
 test:
 	@check-jsonschema --schemafile ./events/CaseRelationshipStateChange.schema.json ./events/examples/case_entity_relation_create_1.json
