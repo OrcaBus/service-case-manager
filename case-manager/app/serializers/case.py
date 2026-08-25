@@ -53,11 +53,15 @@ class CaseUserLinkSerializer(ModelSerializer):
 class CaseDetailSerializer(ModelSerializer):
     from .state import StateSerializer
     from .comment import CommentSerializer
+    from .pending_external_entity import PendingExternalEntitySerializer
 
     alias = StringListField(required=False)
     rnasum_references = StringListField(required=False, allow_null=True)
     external_entity_set = CaseExternalEntityLinkSerializer(
         source="caseexternalentitylink_set", many=True, read_only=True
+    )
+    pending_external_entities = PendingExternalEntitySerializer(
+        many=True, read_only=True
     )
     user_set = CaseUserLinkSerializer(
         source="caseuserlink_set", many=True, read_only=True
