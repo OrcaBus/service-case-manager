@@ -186,7 +186,7 @@ class CaseManagerFilterByExactLinkedLibrariesTestCase(TestCase):
             Case.objects.all(), ["1001", "1002"]
         )
 
-        print('the qs', list(qs))
+        print("the qs", list(qs))
 
         self.assertEqual(list(qs), [case])
 

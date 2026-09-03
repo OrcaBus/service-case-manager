@@ -142,12 +142,10 @@ class CaseViewSet(BaseViewSetWithHistory, CaseLinkMixin):
         qs = self.queryset
         query_params = self.request.query_params.copy()
         library_ids = query_params.getlist("library_id", None)
-        qs = Case.objects.get_by_keyword(qs, **query_params)
-
         if library_ids:
+            query_params.pop("library_id")
             qs = Case.objects.filter_by_exact_linked_libraries(qs, library_ids)
-
-        return qs
+        return Case.objects.get_by_keyword(qs, **query_params)
 
     @extend_schema(
         parameters=[
