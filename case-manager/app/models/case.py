@@ -1,5 +1,8 @@
+from typing import List
+
 from django.core.validators import URLValidator
 from django.db import models
+from django.db.models import Count, Q, QuerySet
 from rest_framework.exceptions import ValidationError
 
 from django.db.models.signals import m2m_changed
@@ -44,7 +47,41 @@ class CaseType(models.TextChoices):
 
 
 class CaseManager(BaseManager):
-    pass
+    def filter_by_exact_linked_libraries(
+        self, qs: QuerySet, library_ids: List[str]
+    ) -> QuerySet:
+        """
+        Filter cases whose linked library ExternalEntity records (service_name='metadata',
+        type='library') match exactly the given set of alias values - no more, no fewer.
+
+        e.g. library_ids=['1001', '1002'] only matches a case that has exactly two linked
+        library entities, aliased '1001' and '1002'.
+        """
+        unique_library_ids = list(dict.fromkeys(library_ids))
+
+        base = Q(
+            external_entity_set__service_name="metadata",
+            external_entity_set__type="library",
+        )
+
+        qs = qs.annotate(
+            # total distinct library links on the case
+            _library_link_total=Count(
+                "external_entity_set",
+                filter=base,
+                distinct=True,
+            ),
+            # distinct library links whose alias is one of the requested ones
+            _library_link_matched=Count(
+                "external_entity_set",
+                filter=base & Q(external_entity_set__alias__in=unique_library_ids),
+                distinct=True,
+            ),
+        ).filter(
+            _library_link_total=len(unique_library_ids),
+            _library_link_matched=len(unique_library_ids),
+        )
+        return qs
 
 
 class CaseUserLink(models.Model):

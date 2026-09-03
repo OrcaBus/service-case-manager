@@ -5,7 +5,7 @@ from django.test import TestCase
 from .factories import USER_001, CASE_REQUEST_FORM_ID_001, CASE_REQUEST_FORM_ID_002
 from .factories import UserFactory, StateFactory, CaseFactory, ExternalEntityFactory
 from .utils import insert_fixture_1
-from ..models import CaseUserLink, Comment
+from ..models import Case, CaseExternalEntityLink, CaseUserLink, Comment
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -159,3 +159,66 @@ class CommentModelTestCase(TestCase):
         )
         with self.assertRaises(ValidationError):
             comment.full_clean()
+
+
+class CaseManagerFilterByExactLinkedLibrariesTestCase(TestCase):
+    """
+    python manage.py test app.tests.test_models.CaseManagerFilterByExactLinkedLibrariesTestCase
+    """
+
+    def _link_library(self, case, alias):
+        entity = ExternalEntityFactory(
+            service_name="metadata", type="library", alias=alias
+        )
+        CaseExternalEntityLink.objects.create(case=case, external_entity=entity)
+        return entity
+
+    def test_matches_case_with_exact_library_set(self):
+        """
+        python manage.py test app.tests.test_models.CaseManagerFilterByExactLinkedLibrariesTestCase.test_matches_case_with_exact_library_set
+        A case linked to exactly the requested libraries (no more, no fewer) should match.
+        """
+        case = CaseFactory(request_form_id=CASE_REQUEST_FORM_ID_001)
+        self._link_library(case, "1001")
+        self._link_library(case, "1002")
+
+        qs = Case.objects.filter_by_exact_linked_libraries(
+            Case.objects.all(), ["1001", "1002"]
+        )
+
+        print('the qs', list(qs))
+
+        self.assertEqual(list(qs), [case])
+
+    def test_excludes_case_with_extra_library(self):
+        """
+        python manage.py test app.tests.test_models.CaseManagerFilterByExactLinkedLibrariesTestCase.test_excludes_case_with_extra_library
+        A case linked to the requested libraries PLUS an extra one should NOT match -
+        this is the "no more" half of the exact-match contract, guarded by the
+        _library_link_count annotation/filter.
+        """
+        case = CaseFactory(request_form_id=CASE_REQUEST_FORM_ID_001)
+        self._link_library(case, "1001")
+        self._link_library(case, "1002")
+        self._link_library(case, "1003")  # extra library not requested
+
+        qs = Case.objects.filter_by_exact_linked_libraries(
+            Case.objects.all(), ["1001", "1002"]
+        )
+
+        self.assertEqual(list(qs), [])
+
+    def test_excludes_case_with_missing_library(self):
+        """
+        python manage.py test app.tests.test_models.CaseManagerFilterByExactLinkedLibrariesTestCase.test_excludes_case_with_missing_library
+        A case linked to only a subset of the requested libraries should NOT match -
+        the "no fewer" half of the exact-match contract, guarded by the per-id filter loop.
+        """
+        case = CaseFactory(request_form_id=CASE_REQUEST_FORM_ID_001)
+        self._link_library(case, "1001")  # missing "1002"
+
+        qs = Case.objects.filter_by_exact_linked_libraries(
+            Case.objects.all(), ["1001", "1002"]
+        )
+
+        self.assertEqual(list(qs), [])
