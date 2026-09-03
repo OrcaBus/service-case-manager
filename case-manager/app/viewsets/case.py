@@ -1,6 +1,6 @@
 import logging
 from django.db import IntegrityError
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework import serializers
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -141,7 +141,30 @@ class CaseViewSet(BaseViewSetWithHistory, CaseLinkMixin):
     def get_queryset(self):
         qs = self.queryset
         query_params = self.request.query_params.copy()
+        library_ids = query_params.getlist("library_id", None)
+        if library_ids:
+            query_params.pop("library_id")
+            qs = Case.objects.filter_by_exact_linked_libraries(qs, library_ids)
         return Case.objects.get_by_keyword(qs, **query_params)
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="libraryId",
+                type=str,
+                description=(
+                    "Filter cases by linked library IDs. Repeat the param for each library "
+                    "(e.g. ?libraryId=1001&libraryId=1002). Matches cases whose linked library "
+                    "external entities (service_name='metadata', type='library') have exactly "
+                    "the given combination of alias values."
+                ),
+            )
+        ],
+        responses=CaseDetailSerializer(many=True),
+        description="List cases, optionally filtered by exact combination of linked library IDs.",
+    )
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
 
     @extend_schema(
         request=None,
