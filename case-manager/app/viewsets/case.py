@@ -144,7 +144,7 @@ class CaseViewSet(BaseViewSetWithHistory, CaseLinkMixin):
         library_ids = query_params.getlist("library_id", None)
         if library_ids:
             query_params.pop("library_id")
-            qs = Case.objects.filter_by_exact_linked_libraries(qs, library_ids)
+            qs = Case.objects.filter_by_any_linked_libraries(qs, library_ids)
         return Case.objects.get_by_keyword(qs, **query_params)
 
     @extend_schema(
@@ -154,14 +154,15 @@ class CaseViewSet(BaseViewSetWithHistory, CaseLinkMixin):
                 type=str,
                 description=(
                     "Filter cases by linked library IDs. Repeat the param for each library "
-                    "(e.g. ?libraryId=1001&libraryId=1002). Matches cases whose linked library "
-                    "external entities (service_name='metadata', type='library') have exactly "
-                    "the given combination of alias values."
+                    "(e.g. ?libraryId=1001&libraryId=1002). Matches cases linked to at least "
+                    "one of the given libraries — i.e. whose linked library external entities "
+                    "(service_name='metadata', type='library') have an alias in the given set. "
+                    "Cases may have additional library links beyond those requested."
                 ),
             )
         ],
         responses=CaseDetailSerializer(many=True),
-        description="List cases, optionally filtered by exact combination of linked library IDs.",
+        description="List cases, optionally filtered to those linked to at least one of the given library IDs.",
     )
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
