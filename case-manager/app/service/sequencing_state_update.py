@@ -5,19 +5,10 @@ import requests
 
 from app.models import CaseExternalEntityLink, ExternalEntity, State, User
 from app.models.case import Case
-from app.models.state import CaseStatus
+from app.models.state import CaseStatus, TERMINAL_STATUSES
 from app.service.utils import get_service_jwt
 
 logger = logging.getLogger(__name__)
-
-# Terminal statuses — the case is closed and should never be auto-transitioned.
-TERMINAL_STATUSES = frozenset(
-    {
-        CaseStatus.LOCKED,
-        CaseStatus.COMPLETED,
-        CaseStatus.ARCHIVED,
-    }
-)
 
 SYSTEM_USER_EMAIL = "system@orcabus.org"
 

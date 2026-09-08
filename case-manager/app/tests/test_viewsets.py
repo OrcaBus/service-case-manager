@@ -15,7 +15,7 @@ from app.tests.factories import (
     CASE_REQUEST_FORM_ID_001,
     CASE_REQUEST_FORM_ID_002,
 )
-from app.tests.utils import insert_fixture_1
+from app.tests.utils import insert_fixture_1, clear_all_data
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -267,4 +267,105 @@ class RedcapAutoSyncViewSetTestCase(TestCase):
         self.assertEqual(response.data["failed"], 0)
         self.assertEqual(
             ExternalSyncLog.objects.filter(external_service="redcap").count(), 1
+        )
+
+
+class CaseIsActiveFilterTestCase(TestCase):
+    """
+    Tests for the ?isActive= query param on GET /api/v1/case/.
+
+    Semantics (see CaseManager.filter_by_active):
+      - omitted        -> no state filtering, all cases returned
+      - isActive=true  -> only ACTIVE cases: latest non-archived state is
+                          non-terminal, OR the case has no state at all, AND the
+                          case has no archived state record
+      - isActive=false -> only INACTIVE cases: latest non-archived state is
+                          terminal (locked/completed/archived), OR the case has
+                          any archived state record
+
+    python manage.py test app.tests.test_viewsets.CaseIsActiveFilterTestCase
+    """
+
+    def setUp(self):
+        from datetime import date, timedelta
+        from app.tests.factories import CaseFactory, StateFactory, UserFactory
+        from app.models.state import CaseStatus
+
+        clear_all_data()
+
+        self.user = UserFactory(name="Alice")
+        self.day1 = date(2024, 1, 1)
+        self.day2 = date(2024, 1, 2)
+
+        def add_state(case, status, event_date, is_archived=False):
+            return StateFactory(
+                case=case,
+                status=status,
+                created_by=self.user,
+                event_date=event_date,
+                is_archived=is_archived,
+            )
+
+        # 1. Active: latest non-archived state is non-terminal.
+        self.active_case = CaseFactory(request_form_id="case-active")
+        add_state(self.active_case, CaseStatus.SEQUENCING_STARTED, self.day1)
+
+        # 2. Stateless: no state at all -> treated as active.
+        self.stateless_case = CaseFactory(request_form_id="case-stateless")
+
+        # 3. Inactive by terminal latest state (completed).
+        self.terminal_case = CaseFactory(request_form_id="case-terminal")
+        add_state(self.terminal_case, CaseStatus.SEQUENCING_STARTED, self.day1)
+        add_state(self.terminal_case, CaseStatus.COMPLETED, self.day2)
+
+    def _get_form_ids(self, response):
+        return {c["request_form_id"] for c in response.data["results"]}
+
+    def test_omitted_returns_all_cases(self):
+        """No isActive param -> every case is returned regardless of state."""
+        response = self.client.get(f"/{CASE_BASE_PATH}/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            self._get_form_ids(response),
+            {
+                "case-active",
+                "case-stateless",
+                "case-terminal",
+            },
+        )
+
+    def test_is_active_true_returns_only_active(self):
+        """isActive=true -> active + stateless."""
+        response = self.client.get(f"/{CASE_BASE_PATH}/?isActive=true")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            self._get_form_ids(response),
+            {"case-active"},
+        )
+
+    def test_is_active_false_returns_only_inactive(self):
+        """isActive=false -> terminal-latest OR has-archived-state cases only."""
+        response = self.client.get(f"/{CASE_BASE_PATH}/?isActive=false")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            self._get_form_ids(response),
+            {"case-terminal"},
+        )
+
+    def test_true_and_false_are_complements(self):
+        """Every case appears in exactly one of isActive=true / isActive=false."""
+        active = self._get_form_ids(
+            self.client.get(f"/{CASE_BASE_PATH}/?isActive=true")
+        )
+        inactive = self._get_form_ids(
+            self.client.get(f"/{CASE_BASE_PATH}/?isActive=false")
+        )
+        self.assertEqual(active & inactive, set(), "buckets must not overlap")
+        self.assertEqual(
+            active | inactive,
+            {
+                "case-active",
+                "case-terminal",
+            },
+            "buckets must together cover all cases",
         )
