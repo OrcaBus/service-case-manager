@@ -1,5 +1,5 @@
 import logging
-
+import datetime
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 from .factories import USER_001, CASE_REQUEST_FORM_ID_001, CASE_REQUEST_FORM_ID_002
@@ -230,3 +230,71 @@ class CaseManagerFilterByAnyLinkedLibrariesTestCase(TestCase):
         )
 
         self.assertEqual(list(qs), [])
+
+
+class CaseManagerFilterByLatestStateTestCase(TestCase):
+    """
+    python manage.py test app.tests.test_models.CaseManagerFilterByLatestStateTestCase
+    """
+
+    def setUp(self):
+        self.user = UserFactory(name=USER_001)
+
+    def _add_state(self, case, status, event_date, is_archived=False):
+        """
+        Create a State on the given case. event_date drives "latest" ordering
+        (the subquery orders by -event_date, -event_time, -orcabus_id).
+        """
+        return StateFactory(
+            case=case,
+            status=status,
+            created_by=self.user,
+            event_date=event_date,
+            is_archived=is_archived,
+        )
+
+    def test_matches_case_whose_latest_state_is_requested_status(self):
+        """
+        python manage.py test app.tests.test_models.CaseManagerFilterByLatestStateTestCase.test_matches_case_whose_latest_state_is_requested_status
+        Only the latest (non-archived) state is considered; an earlier state with a
+        matching status must not cause a match.
+        """
+        case = CaseFactory(request_form_id=CASE_REQUEST_FORM_ID_001)
+        # Earlier state is 'sequencing_started', latest is 'sequencing_completed'.
+        self._add_state(case, "sequencing_started", datetime.date(2024, 1, 1))
+        self._add_state(case, "sequencing_completed", datetime.date(2024, 1, 2))
+
+        # Latest is 'sequencing_completed' -> matches.
+        qs = Case.objects.filter_by_latest_state(
+            Case.objects.all(), ["sequencing_completed"]
+        )
+        self.assertEqual(list(qs), [case])
+
+        # 'sequencing_started' is only an earlier state -> no match.
+        qs = Case.objects.filter_by_latest_state(
+            Case.objects.all(), ["sequencing_started"]
+        )
+        self.assertEqual(list(qs), [])
+
+    def test_matches_multiple_statuses_or(self):
+        """
+        python manage.py test app.tests.test_models.CaseManagerFilterByLatestStateTestCase.test_matches_multiple_statuses_or
+        Multiple requested statuses are OR-matched: a case matches if its latest
+        state is ANY of the requested statuses.
+        """
+        case_a = CaseFactory(request_form_id=CASE_REQUEST_FORM_ID_001)
+        self._add_state(case_a, "sequencing_started", datetime.date(2024, 1, 2))
+
+        case_b = CaseFactory(request_form_id=CASE_REQUEST_FORM_ID_002)
+        self._add_state(case_b, "bioinformatics_started", datetime.date(2024, 1, 2))
+
+        # A third case at an unrequested status should be excluded.
+        case_c = CaseFactory(request_form_id="case-003")
+        self._add_state(case_c, "curation_started", datetime.date(2024, 1, 2))
+
+        qs = Case.objects.filter_by_latest_state(
+            Case.objects.all(),
+            ["sequencing_started", "bioinformatics_started"],
+        )
+
+        self.assertCountEqual(list(qs), [case_a, case_b])
