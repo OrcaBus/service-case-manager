@@ -1,5 +1,5 @@
 import logging
-
+import datetime
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 from .factories import USER_001, CASE_REQUEST_FORM_ID_001, CASE_REQUEST_FORM_ID_002
@@ -161,9 +161,9 @@ class CommentModelTestCase(TestCase):
             comment.full_clean()
 
 
-class CaseManagerFilterByExactLinkedLibrariesTestCase(TestCase):
+class CaseManagerFilterByAnyLinkedLibrariesTestCase(TestCase):
     """
-    python manage.py test app.tests.test_models.CaseManagerFilterByExactLinkedLibrariesTestCase
+    python manage.py test app.tests.test_models.CaseManagerFilterByAnyLinkedLibrariesTestCase
     """
 
     def _link_library(self, case, alias):
@@ -173,52 +173,128 @@ class CaseManagerFilterByExactLinkedLibrariesTestCase(TestCase):
         CaseExternalEntityLink.objects.create(case=case, external_entity=entity)
         return entity
 
-    def test_matches_case_with_exact_library_set(self):
+    def test_matches_case_linked_to_all_requested_libraries(self):
         """
-        python manage.py test app.tests.test_models.CaseManagerFilterByExactLinkedLibrariesTestCase.test_matches_case_with_exact_library_set
-        A case linked to exactly the requested libraries (no more, no fewer) should match.
+        python manage.py test app.tests.test_models.CaseManagerFilterByAnyLinkedLibrariesTestCase.test_matches_case_linked_to_all_requested_libraries
+        A case linked to every requested library should match.
         """
         case = CaseFactory(request_form_id=CASE_REQUEST_FORM_ID_001)
         self._link_library(case, "1001")
         self._link_library(case, "1002")
 
-        qs = Case.objects.filter_by_exact_linked_libraries(
+        qs = Case.objects.filter_by_any_linked_libraries(
             Case.objects.all(), ["1001", "1002"]
         )
-
-        print("the qs", list(qs))
 
         self.assertEqual(list(qs), [case])
 
-    def test_excludes_case_with_extra_library(self):
+    def test_matches_case_linked_to_one_of_requested_libraries(self):
         """
-        python manage.py test app.tests.test_models.CaseManagerFilterByExactLinkedLibrariesTestCase.test_excludes_case_with_extra_library
-        A case linked to the requested libraries PLUS an extra one should NOT match -
-        this is the "no more" half of the exact-match contract, guarded by the
-        _library_link_count annotation/filter.
+        python manage.py test app.tests.test_models.CaseManagerFilterByAnyLinkedLibrariesTestCase.test_matches_case_linked_to_one_of_requested_libraries
+        A case linked to just one of the requested libraries should match ("at least one").
+        """
+        case = CaseFactory(request_form_id=CASE_REQUEST_FORM_ID_001)
+        self._link_library(case, "1001")  # only one of the two requested
+
+        qs = Case.objects.filter_by_any_linked_libraries(
+            Case.objects.all(), ["1001", "1002"]
+        )
+
+        self.assertEqual(list(qs), [case])
+
+    def test_matches_case_with_extra_library(self):
+        """
+        python manage.py test app.tests.test_models.CaseManagerFilterByAnyLinkedLibrariesTestCase.test_matches_case_with_extra_library
+        A case linked to a requested library PLUS extra libraries not requested should still match.
         """
         case = CaseFactory(request_form_id=CASE_REQUEST_FORM_ID_001)
         self._link_library(case, "1001")
-        self._link_library(case, "1002")
         self._link_library(case, "1003")  # extra library not requested
 
-        qs = Case.objects.filter_by_exact_linked_libraries(
+        qs = Case.objects.filter_by_any_linked_libraries(
             Case.objects.all(), ["1001", "1002"]
         )
 
-        self.assertEqual(list(qs), [])
+        self.assertEqual(list(qs), [case])
 
-    def test_excludes_case_with_missing_library(self):
+    def test_excludes_case_with_no_matching_library(self):
         """
-        python manage.py test app.tests.test_models.CaseManagerFilterByExactLinkedLibrariesTestCase.test_excludes_case_with_missing_library
-        A case linked to only a subset of the requested libraries should NOT match -
-        the "no fewer" half of the exact-match contract, guarded by the per-id filter loop.
+        python manage.py test app.tests.test_models.CaseManagerFilterByAnyLinkedLibrariesTestCase.test_excludes_case_with_no_matching_library
+        A case linked to none of the requested libraries should NOT match.
         """
         case = CaseFactory(request_form_id=CASE_REQUEST_FORM_ID_001)
-        self._link_library(case, "1001")  # missing "1002"
+        self._link_library(case, "9999")  # not in requested set
 
-        qs = Case.objects.filter_by_exact_linked_libraries(
+        qs = Case.objects.filter_by_any_linked_libraries(
             Case.objects.all(), ["1001", "1002"]
         )
 
         self.assertEqual(list(qs), [])
+
+
+class CaseManagerFilterByLatestStateTestCase(TestCase):
+    """
+    python manage.py test app.tests.test_models.CaseManagerFilterByLatestStateTestCase
+    """
+
+    def setUp(self):
+        self.user = UserFactory(name=USER_001)
+
+    def _add_state(self, case, status, event_date, is_archived=False):
+        """
+        Create a State on the given case. event_date drives "latest" ordering
+        (the subquery orders by -event_date, -event_time, -orcabus_id).
+        """
+        return StateFactory(
+            case=case,
+            status=status,
+            created_by=self.user,
+            event_date=event_date,
+            is_archived=is_archived,
+        )
+
+    def test_matches_case_whose_latest_state_is_requested_status(self):
+        """
+        python manage.py test app.tests.test_models.CaseManagerFilterByLatestStateTestCase.test_matches_case_whose_latest_state_is_requested_status
+        Only the latest (non-archived) state is considered; an earlier state with a
+        matching status must not cause a match.
+        """
+        case = CaseFactory(request_form_id=CASE_REQUEST_FORM_ID_001)
+        # Earlier state is 'sequencing_started', latest is 'sequencing_completed'.
+        self._add_state(case, "sequencing_started", datetime.date(2024, 1, 1))
+        self._add_state(case, "sequencing_completed", datetime.date(2024, 1, 2))
+
+        # Latest is 'sequencing_completed' -> matches.
+        qs = Case.objects.filter_by_latest_state(
+            Case.objects.all(), ["sequencing_completed"]
+        )
+        self.assertEqual(list(qs), [case])
+
+        # 'sequencing_started' is only an earlier state -> no match.
+        qs = Case.objects.filter_by_latest_state(
+            Case.objects.all(), ["sequencing_started"]
+        )
+        self.assertEqual(list(qs), [])
+
+    def test_matches_multiple_statuses_or(self):
+        """
+        python manage.py test app.tests.test_models.CaseManagerFilterByLatestStateTestCase.test_matches_multiple_statuses_or
+        Multiple requested statuses are OR-matched: a case matches if its latest
+        state is ANY of the requested statuses.
+        """
+        case_a = CaseFactory(request_form_id=CASE_REQUEST_FORM_ID_001)
+        self._add_state(case_a, "sequencing_started", datetime.date(2024, 1, 2))
+
+        case_b = CaseFactory(request_form_id=CASE_REQUEST_FORM_ID_002)
+        self._add_state(case_b, "bioinformatics_started", datetime.date(2024, 1, 2))
+
+        # A third case at an unrequested status should be excluded.
+        case_c = CaseFactory(request_form_id="case-003")
+        self._add_state(case_c, "curation_started", datetime.date(2024, 1, 2))
+
+        qs = Case.objects.filter_by_latest_state(
+            Case.objects.all(),
+            ["sequencing_started", "bioinformatics_started"],
+        )
+
+        self.assertCountEqual(list(qs), [case_a, case_b])

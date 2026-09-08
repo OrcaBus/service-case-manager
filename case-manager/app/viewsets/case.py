@@ -141,10 +141,24 @@ class CaseViewSet(BaseViewSetWithHistory, CaseLinkMixin):
     def get_queryset(self):
         qs = self.queryset
         query_params = self.request.query_params.copy()
+
         library_ids = query_params.getlist("library_id", None)
         if library_ids:
             query_params.pop("library_id")
-            qs = Case.objects.filter_by_exact_linked_libraries(qs, library_ids)
+            qs = Case.objects.filter_by_any_linked_libraries(qs, library_ids)
+
+        latest_states = query_params.getlist("latest_state", None)
+        if latest_states:
+            query_params.pop("latest_state")
+            qs = Case.objects.filter_by_latest_state(qs, latest_states)
+
+        # When omitted, no state filtering is applied (all cases returned).
+        is_active = query_params.get("is_active", None)
+        if is_active is not None:
+            query_params.pop("is_active")
+            active = str(is_active).lower() not in ("false", "0", "no")
+            qs = Case.objects.filter_by_active(qs, active)
+
         return Case.objects.get_by_keyword(qs, **query_params)
 
     @extend_schema(
@@ -154,14 +168,41 @@ class CaseViewSet(BaseViewSetWithHistory, CaseLinkMixin):
                 type=str,
                 description=(
                     "Filter cases by linked library IDs. Repeat the param for each library "
-                    "(e.g. ?libraryId=1001&libraryId=1002). Matches cases whose linked library "
-                    "external entities (service_name='metadata', type='library') have exactly "
-                    "the given combination of alias values."
+                    "(e.g. ?libraryId=1001&libraryId=1002). Matches cases linked to at least "
+                    "one of the given libraries — i.e. whose linked library external entities "
+                    "(service_name='metadata', type='library') have an alias in the given set. "
+                    "Cases may have additional library links beyond those requested."
                 ),
-            )
+            ),
+            OpenApiParameter(
+                name="latestState",
+                type=str,
+                description=(
+                    "Filter cases by their current (latest, non-archived) state status. "
+                    "Repeat the param to OR-match multiple statuses "
+                    "(e.g. ?latestState=sequencing_started&latestState=sequencing_completed). "
+                    "'Latest' matches the `latestState` shown on each case."
+                ),
+            ),
+            OpenApiParameter(
+                name="isActive",
+                type=bool,
+                description=(
+                    "Filter cases by whether they are active.\n\n"
+                    "- If omitted: no filtering; all cases are returned.\n"
+                    "- If true: returns only active cases — those with no archived state "
+                    "record AND whose latest non-archived state is not terminal (locked, "
+                    "completed, archived). Cases with no state yet count as active.\n"
+                    "- If false: returns only inactive cases — those with an archived state "
+                    "record OR whose latest non-archived state is terminal."
+                ),
+            ),
         ],
         responses=CaseDetailSerializer(many=True),
-        description="List cases, optionally filtered by exact combination of linked library IDs.",
+        description=(
+            "List cases, optionally filtered by linked library IDs, current state status, "
+            "and/or active (non-terminal) status."
+        ),
     )
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)

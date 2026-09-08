@@ -11,16 +11,11 @@ from rest_framework.exceptions import ValidationError
 from app.service.external_entity import get_or_create_sequence_run_entity
 from app.service.case import link_case_to_external_entity_and_emit
 from app.models import CaseExternalEntityLink, State, User
-from app.models.state import CaseStatus
+from app.models.state import CaseStatus, TERMINAL_STATUSES
 from app.serializers.case import CaseExternalEntityLinkSerializer
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
-
-# Statuses that should not be auto-transitioned.
-TERMINAL_STATUSES = frozenset(
-    {CaseStatus.LOCKED, CaseStatus.COMPLETED, CaseStatus.ARCHIVED}
-)
 
 SYSTEM_USER_EMAIL = "system@orcabus.org"
 

@@ -2,7 +2,8 @@ from typing import List
 
 from django.core.validators import URLValidator
 from django.db import models
-from django.db.models import Count, Q, QuerySet
+from django.db.models import QuerySet, Subquery, OuterRef, Value, Q
+from django.db.models.functions import Coalesce
 from rest_framework.exceptions import ValidationError
 
 from django.db.models.signals import m2m_changed
@@ -47,41 +48,84 @@ class CaseType(models.TextChoices):
 
 
 class CaseManager(BaseManager):
-    def filter_by_exact_linked_libraries(
+    def filter_by_any_linked_libraries(
         self, qs: QuerySet, library_ids: List[str]
     ) -> QuerySet:
         """
-        Filter cases whose linked library ExternalEntity records (service_name='metadata',
-        type='library') match exactly the given set of alias values - no more, no fewer.
+        Filter cases that are linked to at least one of the given library
+        ExternalEntity records (service_name='metadata', type='library').
 
-        e.g. library_ids=['1001', '1002'] only matches a case that has exactly two linked
-        library entities, aliased '1001' and '1002'.
+        A case matches if any of its linked library entities has an alias in the
+        requested set. Cases may have additional library links not in the set.
+
+        e.g. library_ids=['1001', '1002'] matches any case linked to library
+        '1001' OR library '1002' (or both), regardless of its other library links.
         """
         unique_library_ids = list(dict.fromkeys(library_ids))
 
-        base = Q(
+        return qs.filter(
             external_entity_set__service_name="metadata",
             external_entity_set__type="library",
+            external_entity_set__alias__in=unique_library_ids,
+        ).distinct()
+
+    @staticmethod
+    def _latest_state_status_subquery():
+        """
+        Subquery resolving the status of each case's *latest* non-archived state.
+
+        "Latest" matches how the API surfaces `latestState` on a case: ordered by
+        event_date, then event_time, then orcabus_id (all descending).
+        """
+        from app.models.state import State
+
+        return Subquery(
+            State.objects.filter(case=OuterRef("pk"), is_archived=False)
+            .order_by("-event_date", "-event_time", "-orcabus_id")
+            .values("status")[:1]
         )
 
-        qs = qs.annotate(
-            # total distinct library links on the case
-            _library_link_total=Count(
-                "external_entity_set",
-                filter=base,
-                distinct=True,
-            ),
-            # distinct library links whose alias is one of the requested ones
-            _library_link_matched=Count(
-                "external_entity_set",
-                filter=base & Q(external_entity_set__alias__in=unique_library_ids),
-                distinct=True,
-            ),
-        ).filter(
-            _library_link_total=len(unique_library_ids),
-            _library_link_matched=len(unique_library_ids),
-        )
-        return qs
+    def filter_by_latest_state(self, qs: QuerySet, statuses: List[str]) -> QuerySet:
+        """
+        Filter cases whose latest (non-archived) state status is in ``statuses``.
+
+        e.g. statuses=['sequencing_started'] returns cases currently at
+        'sequencing_started'. Multiple statuses are OR-matched.
+        """
+        unique_statuses = list(dict.fromkeys(statuses))
+        return qs.annotate(
+            _latest_state_status=self._latest_state_status_subquery()
+        ).filter(_latest_state_status__in=unique_statuses)
+
+    def filter_by_active(self, qs: QuerySet, active: bool) -> QuerySet:
+        """
+        Filter cases by whether they are active.
+
+        Archived state records (is_archived=True) are ignored everywhere, so
+        "latest state" always means the latest *non-archived* state.
+
+        - active=True  -> the latest non-archived state is a non-terminal status.
+        - active=False -> the latest non-archived state is a terminal status
+          (see ``CaseStatus.terminal_statuses()``).
+
+        Both branches require a latest non-archived state to exist. A case with
+        no non-archived state has a NULL latest status and matches neither
+        branch, so it is excluded either way.
+
+        This filter is only applied when the caller opts in; when the query param
+        is omitted the viewset returns all cases without calling this.
+
+        Note: SQL ``IN`` / ``NOT IN`` never match NULL, so cases with a NULL
+        latest status are naturally dropped from both branches.
+        """
+        qs = qs.annotate(_latest_state_status=self._latest_state_status_subquery())
+        terminal = CaseStatus.terminal_statuses()
+        if active:
+            return qs.filter(
+                Q(_latest_state_status__isnull=False)
+                & ~Q(_latest_state_status__in=terminal)
+            )
+        return qs.filter(_latest_state_status__in=terminal)
 
 
 class CaseUserLink(models.Model):
@@ -132,9 +176,8 @@ class CaseExternalEntityLink(models.Model):
 
     # Statuses that prevent new external-entity links from being created.
     # To re-allow linking, the case must be transitioned out of one of these states.
-    BLOCKED_LINK_STATUSES = frozenset(
-        {CaseStatus.LOCKED, CaseStatus.COMPLETED, CaseStatus.ARCHIVED}
-    )
+    # These are the same terminal statuses defined once on CaseStatus.
+    BLOCKED_LINK_STATUSES = CaseStatus.terminal_statuses()
 
     case = models.ForeignKey(
         "Case", on_delete=models.CASCADE, db_column="case_orcabus_id"

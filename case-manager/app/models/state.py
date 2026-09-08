@@ -44,6 +44,21 @@ class CaseStatus(models.TextChoices):
     COMPLETED = "completed", "Completed"
     ARCHIVED = "archived", "Archived"
 
+    @classmethod
+    def terminal_statuses(cls) -> frozenset:
+        """
+        Single source of truth for terminal statuses.
+
+        A case whose latest state is one of these is considered closed and is
+        not auto-transitioned; new external-entity links are also blocked while
+        the case is in one of these states.
+        """
+        return frozenset({cls.LOCKED, cls.COMPLETED, cls.ARCHIVED})
+
+
+# Backwards/ergonomic alias so callers can import a plain frozenset.
+TERMINAL_STATUSES = CaseStatus.terminal_statuses()
+
 
 class StateManager(BaseManager):
     pass
