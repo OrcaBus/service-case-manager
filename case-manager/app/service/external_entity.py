@@ -14,11 +14,11 @@ def fetch_external_entity_data(orcabus_id: str):
     Query the metadata and/or workflow service to get entity details.
 
     Supports:
-    - Prefixed IDs: wfr.* (workflow), lib.* (library), seq.* (sequence)
+    - Prefixed IDs: wfr.* (workflow), lib.* (library), smp.* (sample), seq.* (sequence)
     - Unprefixed IDs: tries workflow first, then metadata
 
     Returns:
-        Tuple of (service_name, entity_data_dict)
+        Tuple of (service_name, entity_type, entity_data_dict)
 
     Raises:
         Http404: When entity not found in any service
@@ -28,46 +28,72 @@ def fetch_external_entity_data(orcabus_id: str):
 
     domain_name = os.environ["HOSTED_ZONE_NAME"]
 
-    # Determine which services to check based on prefix
+    # Each candidate is (service_name, entity_type, url) so the resolved
+    # service_name and type are explicit before the entity is saved.
     if orcabus_id.startswith("wfr."):
         services = [
             (
                 "workflow",
+                "workflow_run",
                 f"https://workflow.{domain_name}/api/v1/workflowrun/{orcabus_id}",
             )
         ]
     elif orcabus_id.startswith("lib."):
         services = [
-            ("metadata", f"https://metadata.{domain_name}/api/v1/library/{orcabus_id}")
+            (
+                "metadata",
+                "library",
+                f"https://metadata.{domain_name}/api/v1/library/{orcabus_id}",
+            )
+        ]
+    elif orcabus_id.startswith("smp."):
+        services = [
+            (
+                "metadata",
+                "sample",
+                f"https://metadata.{domain_name}/api/v1/sample/{orcabus_id}",
+            )
         ]
     elif orcabus_id.startswith("seq."):
         services = [
             (
                 "sequence",
+                "sequence_run",
                 f"https://sequence.{domain_name}/api/v1/sequence_run/{orcabus_id}/",
             )
         ]
     else:
-        # No prefix: try both services (workflow first)
+        # No prefix: try all services (workflow first)
         services = [
             (
                 "workflow",
+                "workflow_run",
                 f"https://workflow.{domain_name}/api/v1/workflowrun/{orcabus_id}",
             ),
-            ("metadata", f"https://metadata.{domain_name}/api/v1/library/{orcabus_id}"),
+            (
+                "metadata",
+                "library",
+                f"https://metadata.{domain_name}/api/v1/library/{orcabus_id}",
+            ),
+            (
+                "metadata",
+                "sample",
+                f"https://metadata.{domain_name}/api/v1/sample/{orcabus_id}",
+            ),
             (
                 "sequence",
+                "sequence_run",
                 f"https://sequence.{domain_name}/api/v1/sequence_run/{orcabus_id}/",
             ),
         ]
 
     # Try each service
-    for service_name, url in services:
+    for service_name, entity_type, url in services:
         try:
             response = requests.get(url, headers=headers)
 
             if response.status_code == 200:
-                return service_name, response.json()
+                return service_name, entity_type, response.json()
             elif response.status_code == 404:
                 continue  # Try next service
             else:
@@ -258,6 +284,7 @@ def get_or_create_external_entity(external_entity_orcabus_id: str) -> ExternalEn
     Creates the entity by looking it up in the appropriate service based on the orcabus_id prefix:
       prefix wfr. -> workflow_run run (workflow service)
       prefix lib. -> library (metadata service)
+      prefix smp. -> sample (metadata service)
       prefix seq. -> sequence_run (sequence service)
 
     For sequence runs, use get_or_create_sequence_run_entity() instead.
@@ -268,46 +295,35 @@ def get_or_create_external_entity(external_entity_orcabus_id: str) -> ExternalEn
         )
         return external_entity
     except ObjectDoesNotExist:
-        service, entity_data = fetch_external_entity_data(external_entity_orcabus_id)
-
-        if service == "workflow":
-            external_entity = ExternalEntity.objects.create(
-                orcabus_id=external_entity_orcabus_id,
-                prefix="wfr",
-                type="workflow_run",
-                service_name="workflow",
-                alias=entity_data.get("portalRunId"),
-            )
-            logger.info(
-                f"Created workflow run external entity: {external_entity_orcabus_id}"
-            )
-            return external_entity
-        elif service == "metadata":
-            external_entity = ExternalEntity.objects.create(
-                orcabus_id=external_entity_orcabus_id,
-                prefix="lib",
-                type="library",
-                service_name="metadata",
-                alias=entity_data.get("libraryId"),
-            )
-            logger.info(
-                f"Created library external entity: {external_entity_orcabus_id}"
-            )
-            return external_entity
-        elif service == "sequence":
-            external_entity = ExternalEntity.objects.create(
-                orcabus_id=external_entity_orcabus_id,
-                prefix="seq",
-                type="sequence_run",
-                service_name="sequence",
-                alias=entity_data.get("sequenceRunId"),
-            )
-            logger.info(
-                f"Created library external entity: {external_entity_orcabus_id}"
-            )
-            return external_entity
-
-        logger.error(
-            f"Unknown service type '{service}' for external entity: {external_entity_orcabus_id}"
+        service, entity_type, entity_data = fetch_external_entity_data(
+            external_entity_orcabus_id
         )
-        raise Http404("No ExternalEntity matches the given the orcabus_id.")
+
+        # Per entity type: (prefix, alias field on the fetched data).
+        entity_config = {
+            "workflow_run": ("wfr", "portalRunId"),
+            "library": ("lib", "libraryId"),
+            "sample": ("smp", "sampleId"),
+            "sequence_run": ("seq", "sequenceRunId"),
+        }
+
+        config = entity_config.get(entity_type)
+        if config is None:
+            logger.error(
+                f"Unknown entity type '{entity_type}' (service '{service}') "
+                f"for external entity: {external_entity_orcabus_id}"
+            )
+            raise Http404("No ExternalEntity matches the given the orcabus_id.")
+
+        prefix, alias_field = config
+        external_entity = ExternalEntity.objects.create(
+            orcabus_id=external_entity_orcabus_id,
+            prefix=prefix,
+            type=entity_type,
+            service_name=service,
+            alias=entity_data.get(alias_field),
+        )
+        logger.info(
+            f"Created {entity_type} external entity: {external_entity_orcabus_id}"
+        )
+        return external_entity
