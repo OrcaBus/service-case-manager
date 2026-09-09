@@ -104,26 +104,27 @@ class CaseManager(BaseManager):
         Archived state records (is_archived=True) are ignored everywhere, so
         "latest state" always means the latest *non-archived* state.
 
-        - active=True  -> the latest non-archived state is a non-terminal status.
+        - active=True  -> the latest non-archived state is a non-terminal status,
+          OR the case has no non-archived state at all (stateless cases are
+          considered active).
         - active=False -> the latest non-archived state is a terminal status
           (see ``CaseStatus.terminal_statuses()``).
 
-        Both branches require a latest non-archived state to exist. A case with
-        no non-archived state has a NULL latest status and matches neither
-        branch, so it is excluded either way.
+        A case with no non-archived state has a NULL latest status. It is
+        included in the active branch and excluded from the inactive branch.
 
         This filter is only applied when the caller opts in; when the query param
         is omitted the viewset returns all cases without calling this.
 
         Note: SQL ``IN`` / ``NOT IN`` never match NULL, so cases with a NULL
-        latest status are naturally dropped from both branches.
+        latest status are consider to be active case.
         """
         qs = qs.annotate(_latest_state_status=self._latest_state_status_subquery())
         terminal = CaseStatus.terminal_statuses()
         if active:
             return qs.filter(
-                Q(_latest_state_status__isnull=False)
-                & ~Q(_latest_state_status__in=terminal)
+                Q(_latest_state_status__isnull=True)
+                | ~Q(_latest_state_status__in=terminal)
             )
         return qs.filter(_latest_state_status__in=terminal)
 
