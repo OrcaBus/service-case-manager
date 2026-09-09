@@ -340,7 +340,7 @@ class CaseIsActiveFilterTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
             self._get_form_ids(response),
-            {"case-active"},
+            {"case-active", "case-stateless"},
         )
 
     def test_is_active_false_returns_only_inactive(self):
@@ -365,6 +365,7 @@ class CaseIsActiveFilterTestCase(TestCase):
             active | inactive,
             {
                 "case-active",
+                "case-stateless",
                 "case-terminal",
             },
             "buckets must together cover all cases",

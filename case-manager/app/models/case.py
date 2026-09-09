@@ -101,29 +101,26 @@ class CaseManager(BaseManager):
         """
         Filter cases by whether they are active.
 
-        Archived state records (is_archived=True) are ignored everywhere, so
-        "latest state" always means the latest *non-archived* state.
+        "Latest state" always means the latest *non-archived* state
+        (is_archived=True records are ignored everywhere).
 
-        - active=True  -> the latest non-archived state is a non-terminal status.
-        - active=False -> the latest non-archived state is a terminal status
+        - active=True  -> latest status is non-terminal, or the case has no
+          non-archived state (a NULL status counts as active).
+        - active=False -> latest status is terminal
           (see ``CaseStatus.terminal_statuses()``).
 
-        Both branches require a latest non-archived state to exist. A case with
-        no non-archived state has a NULL latest status and matches neither
-        branch, so it is excluded either way.
-
-        This filter is only applied when the caller opts in; when the query param
-        is omitted the viewset returns all cases without calling this.
-
-        Note: SQL ``IN`` / ``NOT IN`` never match NULL, so cases with a NULL
-        latest status are naturally dropped from both branches.
+        Only applied when the caller opts in; otherwise the viewset returns all
+        cases without calling this.
         """
         qs = qs.annotate(_latest_state_status=self._latest_state_status_subquery())
         terminal = CaseStatus.terminal_statuses()
         if active:
+            # A stateless case (NULL status) is treated as active so it surfaces
+            # for remediation toward a closed state rather than being silently
+            # excluded.
             return qs.filter(
-                Q(_latest_state_status__isnull=False)
-                & ~Q(_latest_state_status__in=terminal)
+                Q(_latest_state_status__isnull=True)
+                | ~Q(_latest_state_status__in=terminal)
             )
         return qs.filter(_latest_state_status__in=terminal)
 
