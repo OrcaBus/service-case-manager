@@ -6,7 +6,9 @@ import { ManagedPolicy } from 'aws-cdk-lib/aws-iam';
 import { formatRdsPolicyName } from '@orcabus/platform-cdk-constructs/shared-config/database';
 import { LambdaFunction } from 'aws-cdk-lib/aws-events-targets';
 import { EventBus, Rule, Schedule } from 'aws-cdk-lib/aws-events';
+import { Secret } from 'aws-cdk-lib/aws-secretsmanager';
 import { EVENT_BUS_NAME } from '@orcabus/platform-cdk-constructs/shared-config/event-bridge';
+import { JWT_SECRET_NAME } from '@orcabus/platform-cdk-constructs/shared-config/secrets';
 
 export const REDCAP_TOKEN_PARAMETER_NAME = '/orcabus/case-manager/redcap/redcap-api-token';
 
@@ -48,6 +50,15 @@ export class LambdaRedCapImportConstruct extends Construct {
       { parameterName: REDCAP_TOKEN_PARAMETER_NAME }
     );
     redcapTokenSSM.grantRead(this.lambda);
+
+    // allow lambda to retrieve the service user JWT
+    const serviceUserJwtSecret = Secret.fromSecretNameV2(
+      this,
+      'serviceUserJwtSecret',
+      JWT_SECRET_NAME
+    );
+    this.lambda.addEnvironment('ORCABUS_SERVICE_JWT_SECRET_ARN', serviceUserJwtSecret.secretArn);
+    serviceUserJwtSecret.grantRead(this.lambda);
 
     const orcabusEventBus = EventBus.fromEventBusName(this, 'EventBus', EVENT_BUS_NAME);
     orcabusEventBus.grantPutEventsTo(this.lambda);
