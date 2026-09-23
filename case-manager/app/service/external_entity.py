@@ -1,5 +1,6 @@
+from django.db import transaction
 from django.http import Http404
-from app.models import ExternalEntity
+from app.models import CaseExternalEntityLink, ExternalEntity, PendingExternalEntity
 from django.core.exceptions import ObjectDoesNotExist
 import requests
 import os
@@ -327,3 +328,70 @@ def get_or_create_external_entity(external_entity_orcabus_id: str) -> ExternalEn
             f"Created {entity_type} external entity: {external_entity_orcabus_id}"
         )
         return external_entity
+
+
+def resolve_pending_external_entities() -> dict:
+    """
+    Process every queued PendingExternalEntity of type "sample" across all cases.
+
+    For each row, resolve the sample via get_or_create_entities_by_sample_id() and
+    ensure its case is linked, even if the ExternalEntity already exists locally
+    (it may not yet be linked to this case). Only delete the pending row once the
+    case-link is confirmed. Rows that can't be resolved, or that error out, are
+    left in the queue and processing continues with the rest.
+
+    Returns a cleanup summary dict where every pending entity falls into exactly one bucket:
+      - resolved:      linked to its case and removed from the queue.
+      - still_pending: checked but not resolvable yet; left in the queue to retry.
+      - failed:        errored during processing; left in the queue.
+      - skipped:       not eligible because its type is not "sample".
+    """
+    resolved = 0
+    still_pending = 0
+    skipped = 0
+    failed = 0
+
+    for row in PendingExternalEntity.objects.all():
+        if row.type != "sample":
+            skipped += 1
+            continue
+
+        try:
+            with transaction.atomic():
+                row_link_count = 0
+
+                # Resolve the sample (and its libraries) via the metadata service. This is
+                # idempotent and safe to call even if the sample ExternalEntity already
+                # exists locally — it still returns the full sample+library set so every
+                # entity can be (re-)linked to this pending row's case before deletion.
+                sample_entity, library_entities = get_or_create_entities_by_sample_id(
+                    row.alias
+                )
+                for entity in filter(None, [sample_entity, *library_entities]):
+                    CaseExternalEntityLink.objects.get_or_create(
+                        case=row.case,
+                        external_entity=entity,
+                    )
+                    row_link_count += 1
+
+                if row_link_count >= 1:
+                    row.delete()
+                    resolved += 1
+                else:
+                    still_pending += 1
+        except Exception as exc:
+            logger.error(
+                "Failed to resolve PendingExternalEntity orcabus_id=%s alias=%s case=%s: %s",
+                row.orcabus_id,
+                row.alias,
+                row.case.request_form_id,
+                exc,
+            )
+            failed += 1
+
+    return {
+        "resolved": resolved,
+        "still_pending": still_pending,
+        "skipped": skipped,
+        "failed": failed,
+    }
