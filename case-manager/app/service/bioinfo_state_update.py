@@ -136,9 +136,7 @@ def _update_case_bioinfo_state(case: Case) -> None:
     # b: Gather all workflow run entities for this case.
     workflow_run_entities = _get_workflow_run_entities_for_case(case)
     if not workflow_run_entities:
-        logger.info(
-            f"Case '{case.orcabus_id}' has no linked workflow runs. Skipping."
-        )
+        logger.info(f"Case '{case.orcabus_id}' has no linked workflow runs. Skipping.")
         return
 
     # c: Determine the target status from the ongoing check.

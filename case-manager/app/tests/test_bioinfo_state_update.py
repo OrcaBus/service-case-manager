@@ -94,10 +94,15 @@ class BioinfoStateUpdateTest(TestCase):
         mock_get.assert_called_once()
         _, call_kwargs = mock_get.call_args
         params = call_kwargs["params"]
-        self.assertEqual(params["is_ongoing"], "true")
+        self.assertEqual(params["isOngoing"], "true")
+        # Compare ignoring any prefix, since ExternalEntity.orcabus_id is stored
+        # and returned as the bare ULID (no 'wfr.' prefix).
         self.assertCountEqual(
-            params["orcabusId"],
-            [WORKFLOW_RUN_ORCABUS_ID_1, WORKFLOW_RUN_ORCABUS_ID_2],
+            [orcabus_id[-26:] for orcabus_id in params["orcabusId"]],
+            [
+                WORKFLOW_RUN_ORCABUS_ID_1[-26:],
+                WORKFLOW_RUN_ORCABUS_ID_2[-26:],
+            ],
         )
 
     # ------------------------------------------------------------------
@@ -337,9 +342,7 @@ class BioinfoStateUpdateTest(TestCase):
         mock_jwt.return_value = "fake-jwt"
         mock_response = MagicMock()
         mock_response.status_code = 500
-        mock_response.raise_for_status.side_effect = requests.RequestException(
-            "boom"
-        )
+        mock_response.raise_for_status.side_effect = requests.RequestException("boom")
         mock_get.return_value = mock_response
 
         with self.assertRaises(requests.RequestException):
