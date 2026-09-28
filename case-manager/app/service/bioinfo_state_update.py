@@ -23,7 +23,7 @@ def _get_current_case_status(case: Case) -> str | None:
     """Return the latest non-archived status for a case, or None if no state exists."""
     latest_state = (
         State.objects.filter(case=case, is_archived=False)
-        .order_by("-event_date")
+        .order_by("-event_date", "-event_time", "-created_at")
         .first()
     )
     return latest_state.status if latest_state else None
