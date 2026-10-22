@@ -1,7 +1,8 @@
 import path from 'path';
 import { Construct } from 'constructs';
-import { Stack, StackProps } from 'aws-cdk-lib';
+import { StackProps } from 'aws-cdk-lib';
 import { Vpc, VpcLookupOptions, SecurityGroup } from 'aws-cdk-lib/aws-ec2';
+import { GitStack } from '@orcabus/platform-cdk-constructs/deployment-stack-pipeline';
 import { Code, Runtime, Architecture, LayerVersion } from 'aws-cdk-lib/aws-lambda';
 import { OrcaBusApiGatewayProps } from '@orcabus/platform-cdk-constructs/api-gateway';
 import { LambdaMigrationConstruct } from './construct/lambda-migration';
@@ -39,7 +40,7 @@ export type CaseManagerStackProps = {
   isDailySyncRedCap?: boolean;
 };
 
-export class CaseManagerStack extends Stack {
+export class CaseManagerStack extends GitStack {
   private readonly CASE_MANAGER_DB_NAME = 'case_manager';
   private readonly CASE_MANAGER_DB_USER = 'case_manager';
 
