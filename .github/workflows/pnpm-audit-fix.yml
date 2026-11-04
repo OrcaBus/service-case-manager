@@ -1,0 +1,72 @@
+name: pnpm audit fix
+
+# Opens a PR that fixes known vulnerabilities reported by `pnpm audit`.
+# Complements Dependabot: Dependabot handles version bumps and direct vulnerabilities,
+# this handles the transitive ones that Dependabot cannot reach.
+
+on:
+  schedule:
+    - cron: '0 20 * * *' # daily, 20:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  audit-fix:
+    runs-on: ubuntu-latest
+    environment: dependency-updates
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.x'
+          cache: 'pnpm'
+
+      - run: corepack enable
+
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+
+      # Prefer updating the lockfile to non-vulnerable versions (no permanent pins).
+      - name: Fix by updating lockfile
+        run: pnpm audit --fix update || true
+
+      # Anything left that cannot be updated within parent ranges gets an override.
+      - name: Fix remaining by override
+        run: pnpm audit --fix override || true
+
+      - run: pnpm install --ignore-scripts
+
+      - name: Test
+        id: test
+        continue-on-error: true
+        run: pnpm test
+
+      - name: Remaining audit findings
+        id: audit
+        continue-on-error: true
+        run: pnpm audit
+
+      - name: Create pull request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.DEPENDENCY_PR_TOKEN }}
+          branch: chore/pnpm-audit-fix
+          delete-branch: true
+          commit-message: 'chore(deps): fix pnpm audit vulnerabilities'
+          title: 'chore(deps): fix pnpm audit vulnerabilities'
+          body: |
+            Automated fix from `pnpm audit --fix`.
+
+            - Tests: `${{ steps.test.outcome }}`
+            - Remaining high/critical findings after fix: `${{ steps.audit.outcome }}`
+
+            Review changes to `pnpm-lock.yaml` and any new `overrides` in `pnpm-workspace.yaml`.
+          add-paths: |
+            pnpm-lock.yaml
+            pnpm-workspace.yaml
+            package.json
