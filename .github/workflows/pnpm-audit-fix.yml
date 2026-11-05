@@ -39,7 +39,7 @@ jobs:
       - name: Fix remaining by override
         run: pnpm audit --fix override || true
 
-      - run: pnpm install --ignore-scripts
+      - run: pnpm install --no-frozen-lockfile --ignore-scripts
 
       - name: Test
         id: test
