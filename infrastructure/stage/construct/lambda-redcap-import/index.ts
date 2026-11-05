@@ -64,6 +64,10 @@ export class LambdaRedCapImportConstruct extends Construct {
     orcabusEventBus.grantPutEventsTo(this.lambda);
     this.lambda.addEnvironment('EVENT_BUS_NAME', EVENT_BUS_NAME);
 
+    // pass the domain name for other services
+    const hostedZoneName = StringParameter.valueFromLookup(this, '/hosted_zone/umccr/name');
+    this.lambda.addEnvironment('HOSTED_ZONE_NAME', hostedZoneName);
+
     // Add scheduled event to re-sync metadata every midnight
     const redCapLambdaEventTarget = new LambdaFunction(this.lambda);
     new Rule(this, 'RedCapLambdaTriggerScheduledRule', {
