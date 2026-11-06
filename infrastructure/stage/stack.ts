@@ -7,12 +7,9 @@ import { Code, Runtime, Architecture, LayerVersion } from 'aws-cdk-lib/aws-lambd
 import { OrcaBusApiGatewayProps } from '@orcabus/platform-cdk-constructs/api-gateway';
 import { LambdaMigrationConstruct } from './construct/lambda-migration';
 import { LambdaAPIConstruct } from './construct/lambda-api';
-import { ManagedPolicy } from 'aws-cdk-lib/aws-iam';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
-import {
-  DB_CLUSTER_ENDPOINT_HOST_PARAMETER_NAME,
-  formatRdsPolicyName,
-} from '@orcabus/platform-cdk-constructs/shared-config/database';
+import { DB_CLUSTER_ENDPOINT_HOST_PARAMETER_NAME } from '@orcabus/platform-cdk-constructs/shared-config/database';
+import { CASE_MANAGER_DB_NAME, CASE_MANAGER_DB_USER } from './construct/utils';
 import { EventSchemaConstruct } from './construct/event-schema';
 import { LambdaRedCapImportConstruct } from './construct/lambda-redcap-import';
 import { LambdaMetadataEntityLinkConstruct } from './construct/lambda-metadata-linking';
@@ -41,9 +38,6 @@ export type CaseManagerStackProps = {
 };
 
 export class CaseManagerStack extends GitStack {
-  private readonly CASE_MANAGER_DB_NAME = 'case_manager';
-  private readonly CASE_MANAGER_DB_USER = 'case_manager';
-
   constructor(scope: Construct, id: string, props: StackProps & CaseManagerStackProps) {
     super(scope, id, props);
 
@@ -69,12 +63,6 @@ export class CaseManagerStack extends GitStack {
       this,
       DB_CLUSTER_ENDPOINT_HOST_PARAMETER_NAME
     );
-    const rdsConnectPolicy = ManagedPolicy.fromManagedPolicyName(
-      this,
-      'RdsConnectPolicy',
-      formatRdsPolicyName(this.CASE_MANAGER_DB_USER)
-    );
-
     const basicLambdaConfig = {
       entry: path.join(__dirname, '../../case-manager'),
       runtime: Runtime.PYTHON_3_13,
@@ -85,8 +73,8 @@ export class CaseManagerStack extends GitStack {
       environment: {
         DJANGO_SETTINGS_MODULE: 'app.settings.aws',
         PG_HOST: clusterHostEndpoint,
-        PG_USER: this.CASE_MANAGER_DB_USER,
-        PG_DB_NAME: this.CASE_MANAGER_DB_NAME,
+        PG_USER: CASE_MANAGER_DB_USER,
+        PG_DB_NAME: CASE_MANAGER_DB_NAME,
       },
       securityGroups: [lambdaSG],
       vpc: vpc,
@@ -97,7 +85,6 @@ export class CaseManagerStack extends GitStack {
 
     new LambdaMigrationConstruct(this, 'MigrationLambda', {
       basicLambdaConfig: basicLambdaConfig,
-      rdsConnectPolicy: rdsConnectPolicy,
     });
 
     if (props.isDailySyncRedCap) {
@@ -109,7 +96,6 @@ export class CaseManagerStack extends GitStack {
     new LambdaAPIConstruct(this, 'APILambda', {
       basicLambdaConfig: basicLambdaConfig,
       apiGatewayConstructProps: props.apiGatewayCognitoProps,
-      rdsConnectPolicy: rdsConnectPolicy,
     });
 
     new EventSchemaConstruct(this, 'EventSchema');
