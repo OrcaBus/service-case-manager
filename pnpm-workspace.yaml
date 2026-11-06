@@ -1,4 +1,5 @@
 allowBuilds:
+  '@parcel/watcher': false
   unrs-resolver: true
 minimumReleaseAgeExclude:
   - brace-expansion@1.1.16 || 5.0.8 || 5.0.10 || 5.0.11 || 5.0.12

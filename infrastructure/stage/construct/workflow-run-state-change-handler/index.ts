@@ -1,14 +1,9 @@
 import { Construct } from 'constructs';
 import { PythonFunction, PythonFunctionProps } from '@aws-cdk/aws-lambda-python-alpha';
 import { Duration } from 'aws-cdk-lib';
-import { ManagedPolicy } from 'aws-cdk-lib/aws-iam';
-import { formatRdsPolicyName } from '@orcabus/platform-cdk-constructs/shared-config/database';
 import { LambdaFunction } from 'aws-cdk-lib/aws-events-targets';
-import { EventBus, Match, Rule } from 'aws-cdk-lib/aws-events';
-import { EVENT_BUS_NAME } from '@orcabus/platform-cdk-constructs/shared-config/event-bridge';
-import { Secret } from 'aws-cdk-lib/aws-secretsmanager';
-import { JWT_SECRET_NAME } from '@orcabus/platform-cdk-constructs/shared-config/secrets';
-import { StringParameter } from 'aws-cdk-lib/aws-ssm';
+import { Match, Rule } from 'aws-cdk-lib/aws-events';
+import { grantEventBusPublish, grantOrcabusServiceAccess, grantRdsConnect } from '../utils';
 
 const WGS_WORKFLOW = ['sash', 'tumor-normal', 'dragen-wgts-dna', 'oncoanalyser-wgts-dna'];
 const WTS_WORKFLOW = ['wts', 'dragen-wgts-rna', 'oncoanalyser-wgts-rna'];
@@ -50,30 +45,9 @@ export class WorkflowRunStateChangeHandler extends Construct {
       // Not using environment here to prevent overriding from the basicLambdaConfig EnvVar
     });
 
-    this.lambda.role?.addManagedPolicy(
-      ManagedPolicy.fromManagedPolicyName(
-        this,
-        'OrcabusRdsConnectPolicy',
-        formatRdsPolicyName('case_manager')
-      )
-    );
-
-    // pass the domain name for other services
-    const hostedZoneName = StringParameter.valueFromLookup(this, '/hosted_zone/umccr/name');
-    this.lambda.addEnvironment('HOSTED_ZONE_NAME', hostedZoneName);
-
-    // allow lambda to retrieve the service user JWT
-    const serviceUserJwtSecret = Secret.fromSecretNameV2(
-      this,
-      'serviceUserJwtSecret',
-      JWT_SECRET_NAME
-    );
-    this.lambda.addEnvironment('ORCABUS_SERVICE_JWT_SECRET_ARN', serviceUserJwtSecret.secretArn);
-    serviceUserJwtSecret.grantRead(this.lambda);
-
-    const orcabusEventBus = EventBus.fromEventBusName(this, 'EventBus', EVENT_BUS_NAME);
-    orcabusEventBus.grantPutEventsTo(this.lambda);
-    this.lambda.addEnvironment('EVENT_BUS_NAME', EVENT_BUS_NAME);
+    grantRdsConnect(this.lambda);
+    grantOrcabusServiceAccess(this.lambda);
+    const orcabusEventBus = grantEventBusPublish(this.lambda);
 
     // Add EventBridge rule to trigger Lambda on WorkflowRunStateChange events.
     // No status filter: the handler accepts every status and reconciles the case's

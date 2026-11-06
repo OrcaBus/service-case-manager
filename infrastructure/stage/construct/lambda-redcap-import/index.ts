@@ -1,16 +1,14 @@
 import { Construct } from 'constructs';
 import { PythonFunction, PythonFunctionProps } from '@aws-cdk/aws-lambda-python-alpha';
 import { Duration } from 'aws-cdk-lib';
-import { StringParameter } from 'aws-cdk-lib/aws-ssm';
-import { ManagedPolicy } from 'aws-cdk-lib/aws-iam';
-import { formatRdsPolicyName } from '@orcabus/platform-cdk-constructs/shared-config/database';
 import { LambdaFunction } from 'aws-cdk-lib/aws-events-targets';
-import { EventBus, Rule, Schedule } from 'aws-cdk-lib/aws-events';
-import { Secret } from 'aws-cdk-lib/aws-secretsmanager';
-import { EVENT_BUS_NAME } from '@orcabus/platform-cdk-constructs/shared-config/event-bridge';
-import { JWT_SECRET_NAME } from '@orcabus/platform-cdk-constructs/shared-config/secrets';
-
-export const REDCAP_TOKEN_PARAMETER_NAME = '/orcabus/case-manager/redcap/redcap-api-token';
+import { Rule, Schedule } from 'aws-cdk-lib/aws-events';
+import {
+  grantEventBusPublish,
+  grantOrcabusServiceAccess,
+  grantRdsConnect,
+  grantRedcapToken,
+} from '../utils';
 
 type RedCapLambdaProps = {
   /**
@@ -35,38 +33,10 @@ export class LambdaRedCapImportConstruct extends Construct {
       timeout: Duration.minutes(15),
       // Not using environment here to prevent overriding from the basicLambdaConfig EnvVar
     });
-    this.lambda.role?.addManagedPolicy(
-      ManagedPolicy.fromManagedPolicyName(
-        this,
-        'OrcabusRdsConnectPolicy',
-        formatRdsPolicyName('case_manager')
-      )
-    );
-
-    this.lambda.addEnvironment('REDCAP_TOKEN_PARAMETER_NAME', REDCAP_TOKEN_PARAMETER_NAME);
-    const redcapTokenSSM = StringParameter.fromSecureStringParameterAttributes(
-      this,
-      'RedcapTokenSSM',
-      { parameterName: REDCAP_TOKEN_PARAMETER_NAME }
-    );
-    redcapTokenSSM.grantRead(this.lambda);
-
-    // allow lambda to retrieve the service user JWT
-    const serviceUserJwtSecret = Secret.fromSecretNameV2(
-      this,
-      'serviceUserJwtSecret',
-      JWT_SECRET_NAME
-    );
-    this.lambda.addEnvironment('ORCABUS_SERVICE_JWT_SECRET_ARN', serviceUserJwtSecret.secretArn);
-    serviceUserJwtSecret.grantRead(this.lambda);
-
-    const orcabusEventBus = EventBus.fromEventBusName(this, 'EventBus', EVENT_BUS_NAME);
-    orcabusEventBus.grantPutEventsTo(this.lambda);
-    this.lambda.addEnvironment('EVENT_BUS_NAME', EVENT_BUS_NAME);
-
-    // pass the domain name for other services
-    const hostedZoneName = StringParameter.valueFromLookup(this, '/hosted_zone/umccr/name');
-    this.lambda.addEnvironment('HOSTED_ZONE_NAME', hostedZoneName);
+    grantRdsConnect(this.lambda);
+    grantRedcapToken(this.lambda);
+    grantOrcabusServiceAccess(this.lambda);
+    grantEventBusPublish(this.lambda);
 
     // Add scheduled event to re-sync metadata every midnight
     const redCapLambdaEventTarget = new LambdaFunction(this.lambda);

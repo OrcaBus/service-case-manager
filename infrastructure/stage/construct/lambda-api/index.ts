@@ -12,23 +12,18 @@ import {
   OrcaBusApiGateway,
   OrcaBusApiGatewayProps,
 } from '@orcabus/platform-cdk-constructs/api-gateway';
-import { IManagedPolicy } from 'aws-cdk-lib/aws-iam';
-import { EVENT_BUS_NAME } from '@orcabus/platform-cdk-constructs/shared-config/event-bridge';
-import { EventBus } from 'aws-cdk-lib/aws-events';
-import { Secret } from 'aws-cdk-lib/aws-secretsmanager';
-import { JWT_SECRET_NAME } from '@orcabus/platform-cdk-constructs/shared-config/secrets';
-import { StringParameter } from 'aws-cdk-lib/aws-ssm';
-import { REDCAP_TOKEN_PARAMETER_NAME } from '../lambda-redcap-import';
+import {
+  grantEventBusPublish,
+  grantOrcabusServiceAccess,
+  grantRdsConnect,
+  grantRedcapToken,
+} from '../utils';
 
 type LambdaProps = {
   /**
    * The basic common lambda properties that it should inherit from
    */
   basicLambdaConfig: PythonFunctionProps;
-  /**
-   * Managed policy granting `rds-db:connect` on the RDS cluster
-   */
-  rdsConnectPolicy: IManagedPolicy;
   /**
    * The props for api-gateway
    */
@@ -55,28 +50,10 @@ export class LambdaAPIConstruct extends Construct {
       timeout: Duration.seconds(28),
       memorySize: 1024,
     });
-    this.lambda.role?.addManagedPolicy(lambdaProps.rdsConnectPolicy);
-
-    this.lambda.addEnvironment('REDCAP_TOKEN_PARAMETER_NAME', REDCAP_TOKEN_PARAMETER_NAME);
-    const redcapTokenSSM = StringParameter.fromSecureStringParameterAttributes(
-      this,
-      'RedcapTokenSSM',
-      { parameterName: REDCAP_TOKEN_PARAMETER_NAME }
-    );
-    redcapTokenSSM.grantRead(this.lambda);
-
-    // pass the domain name for other services
-    const hostedZoneName = StringParameter.valueFromLookup(this, '/hosted_zone/umccr/name');
-    this.lambda.addEnvironment('HOSTED_ZONE_NAME', hostedZoneName);
-
-    // allow lambda to retrieve the service user JWT
-    const serviceUserJwtSecret = Secret.fromSecretNameV2(
-      this,
-      'serviceUserJwtSecret',
-      JWT_SECRET_NAME
-    );
-    this.lambda.addEnvironment('ORCABUS_SERVICE_JWT_SECRET_ARN', serviceUserJwtSecret.secretArn);
-    serviceUserJwtSecret.grantRead(this.lambda);
+    grantRdsConnect(this.lambda);
+    grantRedcapToken(this.lambda);
+    grantOrcabusServiceAccess(this.lambda);
+    grantEventBusPublish(this.lambda);
 
     // add some integration to the http api gw
     const apiIntegration = new HttpLambdaIntegration('ApiLambdaIntegration', this.lambda);
@@ -130,9 +107,5 @@ export class LambdaAPIConstruct extends Construct {
         HttpMethod.DELETE
       ),
     });
-
-    const orcabusEventBus = EventBus.fromEventBusName(this, 'EventBus', EVENT_BUS_NAME);
-    orcabusEventBus.grantPutEventsTo(this.lambda);
-    this.lambda.addEnvironment('EVENT_BUS_NAME', EVENT_BUS_NAME);
   }
 }
