@@ -4,7 +4,7 @@ import ulid
 from functools import reduce
 from typing import List
 
-from django.core.exceptions import FieldError
+from django.core.exceptions import FieldDoesNotExist, FieldError
 from django.core.validators import RegexValidator
 from django.db import models
 from django.db.models import (
@@ -32,6 +32,25 @@ class BaseManager(models.Manager):
         if qs is None:
             qs = super().get_queryset()
         return self.get_model_fields_query(qs, **kwargs)
+
+    def _is_boolean_field(self, key: str) -> bool:
+        """Check if the filter key is a BooleanField on this manager's model."""
+        try:
+            field = self.model._meta.get_field(key)
+        except FieldDoesNotExist:
+            return False
+        return isinstance(field, models.BooleanField)
+
+    @staticmethod
+    def _normalise_bool(value):
+        """Case-insensitive boolean parsing (true/TRUE/True, false/FALSE/False, 1/0, t/f, yes/no)."""
+        if isinstance(value, str):
+            lowered = value.strip().lower()
+            if lowered in ("true", "t", "1", "yes", "y"):
+                return True
+            if lowered in ("false", "f", "0", "no", "n"):
+                return False
+        return value
 
     @staticmethod
     def reduce_multi_values_qor(key: str, values: List[str]):
@@ -67,6 +86,11 @@ class BaseManager(models.Manager):
         query_string = None
 
         for key, values in kwargs.items():
+            if self._is_boolean_field(key):
+                values = [
+                    self._normalise_bool(v)
+                    for v in (values if isinstance(values, list) else [values])
+                ]
             each_query = self.reduce_multi_values_qor(key, values)
             if query_string:
                 query_string = query_string & each_query
